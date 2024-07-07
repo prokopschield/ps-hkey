@@ -192,7 +192,7 @@ impl Hkey {
         let hkey_iter = list.into_par_iter();
 
         // Closure to resolve each Hkey
-        let closure = |hkey: &Hkey| hkey.resolve(&resolver);
+        let closure = |hkey: &Hkey| hkey.resolve(resolver);
 
         // Apply the closure to each item in the iterator
         let results: TResult<Vec<DataChunk>, E> = hkey_iter.map(closure).collect();
