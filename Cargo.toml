@@ -1,0 +1,17 @@
+[package]
+name = "ps-hkey"
+description = "This crate defines the hashkey format and provides methods for resolving them"
+version = "0.1.0-1"
+edition = "2021"
+license = "GPL-3.0-or-later"
+
+[profile.dev]
+opt-level = 3
+
+[profile.release]
+opt-level = 3
+
+[dependencies]
+ps-base64 = "0.1.0-2"
+ps-hash = "0.1.0-8"
+thiserror = "1.0.61"
