@@ -1,7 +1,13 @@
 pub mod error;
 pub use error::PsHkeyError;
 pub use error::Result;
+use ps_datachunk::Compressor;
+use ps_datachunk::DataChunk;
+use ps_datachunk::OwnedDataChunk;
+use ps_datachunk::PsDataChunkError;
 pub use ps_hash::Hash;
+use rayon::iter::IntoParallelIterator;
+use rayon::iter::ParallelIterator;
 use std::sync::Arc;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -126,6 +132,80 @@ impl Hkey {
         accumulator.push(']');
 
         accumulator
+    }
+
+    pub fn resolve<'lt, E, F>(&self, resolver: &F) -> std::result::Result<DataChunk<'lt>, E>
+    where
+        E: From<PsDataChunkError> + Send,
+        F: Fn(&Hash) -> std::result::Result<DataChunk<'lt>, E> + Sync,
+    {
+        let chunk = match self {
+            Hkey::Raw(raw) => OwnedDataChunk::from_data_ref(raw).into(),
+            Hkey::Base64(base64) => {
+                OwnedDataChunk::from_data(ps_base64::decode(base64.as_bytes())).into()
+            }
+            Hkey::Direct(hash) => resolver(hash)?,
+            Hkey::Encrypted(hash, key) => Self::resolve_encrypted(hash, key, resolver)?.into(),
+            Hkey::ListRef(hash, key) => Self::resolve_list_ref(hash, key, resolver)?.into(),
+            Hkey::List(list) => Self::resolve_list(list, resolver)?.into(),
+        };
+
+        Ok(chunk)
+    }
+
+    pub fn resolve_encrypted<'lt, E, F>(
+        hash: &Hash,
+        key: &Hash,
+        resolver: &F,
+    ) -> std::result::Result<OwnedDataChunk, E>
+    where
+        E: From<PsDataChunkError>,
+        F: Fn(&Hash) -> std::result::Result<DataChunk<'lt>, E>,
+    {
+        let encrypted = resolver(hash)?;
+        let decrypted = encrypted.decrypt(key.as_bytes(), &Compressor::new())?;
+
+        Ok(decrypted.into())
+    }
+
+    pub fn resolve_list_ref<'lt, E, F>(
+        hash: &Hash,
+        key: &Hash,
+        resolver: &F,
+    ) -> std::result::Result<DataChunk<'lt>, E>
+    where
+        E: From<PsDataChunkError> + Send,
+        F: Fn(&Hash) -> std::result::Result<DataChunk<'lt>, E> + Sync,
+    {
+        let list_bytes = Self::resolve_encrypted(hash, key, resolver)?;
+
+        Hkey::from(list_bytes.data_ref()).resolve(resolver)
+    }
+
+    pub fn resolve_list<'lt, E, F>(
+        list: &[Hkey],
+        resolver: &F,
+    ) -> std::result::Result<OwnedDataChunk, E>
+    where
+        E: From<PsDataChunkError> + Send,
+        F: Fn(&Hash) -> std::result::Result<DataChunk<'lt>, E> + Sync,
+    {
+        // Parallel iterator over the list
+        let hkey_iter = list.into_par_iter();
+
+        // Closure to resolve each Hkey
+        let closure = |hkey: &Hkey| hkey.resolve(&resolver);
+
+        // Apply the closure to each item in the iterator
+        let results: std::result::Result<Vec<DataChunk>, E> = hkey_iter.map(closure).collect();
+
+        let mut data = Vec::new();
+
+        for result in results? {
+            data.extend_from_slice(result.data_ref())
+        }
+
+        Ok(OwnedDataChunk::from_data(data))
     }
 }
 
