@@ -111,15 +111,21 @@ impl Hkey {
     }
 
     pub fn format_list(list: &[Hkey]) -> String {
-        format!(
-            "[{}]",
-            list.into_iter().fold(String::new(), |a, i| {
-                match a.len() {
-                    0 => format!("{}", i),
-                    _ => format!("{},{}", a, i),
-                }
-            })
-        )
+        let first = match list.get(0) {
+            Some(first) => first,
+            None => return format!("[]"),
+        };
+
+        let mut accumulator = format!("[{}", first);
+
+        list[1..].into_iter().for_each(|hkey| {
+            accumulator.push(',');
+            accumulator.push_str(&hkey.to_string());
+        });
+
+        accumulator.push(']');
+
+        accumulator
     }
 }
 
