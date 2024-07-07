@@ -8,6 +8,7 @@ use ps_datachunk::PsDataChunkError;
 pub use ps_hash::Hash;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
+use std::result::Result as TResult;
 use std::sync::Arc;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -134,10 +135,10 @@ impl Hkey {
         accumulator
     }
 
-    pub fn resolve<'lt, E, F>(&self, resolver: &F) -> std::result::Result<DataChunk<'lt>, E>
+    pub fn resolve<'lt, E, F>(&self, resolver: &F) -> TResult<DataChunk<'lt>, E>
     where
         E: From<PsDataChunkError> + Send,
-        F: Fn(&Hash) -> std::result::Result<DataChunk<'lt>, E> + Sync,
+        F: Fn(&Hash) -> TResult<DataChunk<'lt>, E> + Sync,
     {
         let chunk = match self {
             Hkey::Raw(raw) => OwnedDataChunk::from_data_ref(raw).into(),
@@ -157,10 +158,10 @@ impl Hkey {
         hash: &Hash,
         key: &Hash,
         resolver: &F,
-    ) -> std::result::Result<OwnedDataChunk, E>
+    ) -> TResult<OwnedDataChunk, E>
     where
         E: From<PsDataChunkError>,
-        F: Fn(&Hash) -> std::result::Result<DataChunk<'lt>, E>,
+        F: Fn(&Hash) -> TResult<DataChunk<'lt>, E>,
     {
         let encrypted = resolver(hash)?;
         let decrypted = encrypted.decrypt(key.as_bytes(), &Compressor::new())?;
@@ -172,23 +173,20 @@ impl Hkey {
         hash: &Hash,
         key: &Hash,
         resolver: &F,
-    ) -> std::result::Result<DataChunk<'lt>, E>
+    ) -> TResult<DataChunk<'lt>, E>
     where
         E: From<PsDataChunkError> + Send,
-        F: Fn(&Hash) -> std::result::Result<DataChunk<'lt>, E> + Sync,
+        F: Fn(&Hash) -> TResult<DataChunk<'lt>, E> + Sync,
     {
         let list_bytes = Self::resolve_encrypted(hash, key, resolver)?;
 
         Hkey::from(list_bytes.data_ref()).resolve(resolver)
     }
 
-    pub fn resolve_list<'lt, E, F>(
-        list: &[Hkey],
-        resolver: &F,
-    ) -> std::result::Result<OwnedDataChunk, E>
+    pub fn resolve_list<'lt, E, F>(list: &[Hkey], resolver: &F) -> TResult<OwnedDataChunk, E>
     where
         E: From<PsDataChunkError> + Send,
-        F: Fn(&Hash) -> std::result::Result<DataChunk<'lt>, E> + Sync,
+        F: Fn(&Hash) -> TResult<DataChunk<'lt>, E> + Sync,
     {
         // Parallel iterator over the list
         let hkey_iter = list.into_par_iter();
@@ -197,7 +195,7 @@ impl Hkey {
         let closure = |hkey: &Hkey| hkey.resolve(&resolver);
 
         // Apply the closure to each item in the iterator
-        let results: std::result::Result<Vec<DataChunk>, E> = hkey_iter.map(closure).collect();
+        let results: TResult<Vec<DataChunk>, E> = hkey_iter.map(closure).collect();
 
         let mut data = Vec::new();
 
