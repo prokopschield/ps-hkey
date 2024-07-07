@@ -8,6 +8,8 @@ use ps_datachunk::PsDataChunkError;
 pub use ps_hash::Hash;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
+use std::future::Future;
+use std::pin::Pin;
 use std::result::Result as TResult;
 use std::sync::Arc;
 
@@ -201,6 +203,102 @@ impl Hkey {
 
         for result in results? {
             data.extend_from_slice(result.data_ref())
+        }
+
+        Ok(OwnedDataChunk::from_data(data))
+    }
+
+    pub fn resolve_async_box<'a, 'lt, E, F>(
+        &'a self,
+        resolver: &'a F,
+    ) -> Pin<Box<dyn Future<Output = TResult<DataChunk<'lt>, E>> + 'a>>
+    where
+        'lt: 'a,
+        E: From<PsDataChunkError> + Send + 'a,
+        F: Fn(&Hash) -> Pin<Box<dyn Future<Output = TResult<DataChunk<'lt>, E>>>> + Sync + 'a,
+    {
+        Box::pin(async move { self.resolve_async(resolver).await })
+    }
+
+    pub async fn resolve_async<'lt, E, F>(&self, resolver: &F) -> TResult<DataChunk<'lt>, E>
+    where
+        E: From<PsDataChunkError> + Send,
+        F: Fn(&Hash) -> Pin<Box<dyn Future<Output = TResult<DataChunk<'lt>, E>>>> + Sync,
+    {
+        let chunk = match self {
+            Hkey::Raw(raw) => OwnedDataChunk::from_data_ref(raw).into(),
+            Hkey::Base64(base64) => {
+                OwnedDataChunk::from_data(ps_base64::decode(base64.as_bytes())).into()
+            }
+            Hkey::Direct(hash) => resolver(hash).await?,
+            Hkey::Encrypted(hash, key) => Self::resolve_encrypted_async(hash, key, resolver)
+                .await?
+                .into(),
+            Hkey::ListRef(hash, key) => Self::resolve_list_ref_async(hash, key, resolver)
+                .await?
+                .into(),
+            Hkey::List(list) => Self::resolve_list_async(list, resolver).await?.into(),
+        };
+
+        Ok(chunk)
+    }
+
+    pub async fn resolve_encrypted_async<'lt, E, F>(
+        hash: &Hash,
+        key: &Hash,
+        resolver: &F,
+    ) -> TResult<OwnedDataChunk, E>
+    where
+        E: From<PsDataChunkError>,
+        F: Fn(&Hash) -> Pin<Box<dyn Future<Output = TResult<DataChunk<'lt>, E>>>>,
+    {
+        let encrypted = resolver(hash).await?;
+        let decrypted = encrypted.decrypt(key.as_bytes(), &Compressor::new())?;
+
+        Ok(decrypted.into())
+    }
+
+    pub async fn resolve_list_ref_async<'lt, E, F>(
+        hash: &Hash,
+        key: &Hash,
+        resolver: &F,
+    ) -> TResult<DataChunk<'lt>, E>
+    where
+        E: From<PsDataChunkError> + Send,
+        F: Fn(&Hash) -> Pin<Box<dyn Future<Output = TResult<DataChunk<'lt>, E>>>> + Sync,
+    {
+        let list_bytes = Self::resolve_encrypted_async(hash, key, resolver).await?;
+
+        Hkey::from(list_bytes.data_ref())
+            .resolve_async_box(resolver)
+            .await
+    }
+
+    pub async fn resolve_list_async<'k, 'lt, E, F>(
+        list: &'k [Hkey],
+        resolver: &F,
+    ) -> TResult<OwnedDataChunk, E>
+    where
+        E: From<PsDataChunkError> + Send,
+        F: Fn(&Hash) -> Pin<Box<dyn Future<Output = TResult<DataChunk<'lt>, E>>>> + Sync,
+    {
+        // Iterator over the list
+        let hkey_iter = list.into_iter();
+
+        // Closure to resolve each Hkey
+        let closure = |hkey: &'k Hkey| hkey.resolve_async_box(resolver);
+
+        // Apply the closure to each item in the iterator
+        let futures = hkey_iter.map(closure).collect();
+        let futures: Vec<Pin<Box<dyn Future<Output = TResult<DataChunk, E>>>>> = futures;
+
+        // Join futures into a single Future, then await it
+        let joined = futures::future::join_all(futures).await;
+
+        let mut data = Vec::new();
+
+        for result in joined {
+            data.extend_from_slice(result?.data_ref())
         }
 
         Ok(OwnedDataChunk::from_data(data))

@@ -12,6 +12,7 @@ opt-level = 3
 opt-level = 3
 
 [dependencies]
+futures = "0.3.30"
 ps-base64 = "0.1.0-2"
 ps-datachunk = "0.1.0-7"
 ps-hash = "0.1.0-8"
