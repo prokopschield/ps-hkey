@@ -1,4 +1,5 @@
 pub mod error;
+pub mod long;
 pub use error::PsHkeyError;
 pub use error::Result;
 use ps_datachunk::Compressor;
