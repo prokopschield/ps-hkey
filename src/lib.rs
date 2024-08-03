@@ -2,6 +2,7 @@ pub mod error;
 pub mod long;
 pub use error::PsHkeyError;
 pub use error::Result;
+use long::LongHkey;
 use ps_datachunk::Compressor;
 use ps_datachunk::DataChunk;
 use ps_datachunk::OwnedDataChunk;
@@ -28,6 +29,8 @@ pub enum Hkey {
     ListRef(Arc<Hash>, Arc<Hash>),
     /// A list to be concatinated
     List(Arc<[Hkey]>),
+    /// LongHkey representing a very large buffer
+    LongHkey(Arc<LongHkey>),
 }
 
 impl Hkey {
@@ -152,6 +155,12 @@ impl Hkey {
             Hkey::Encrypted(hash, key) => Self::resolve_encrypted(hash, key, resolver)?.into(),
             Hkey::ListRef(hash, key) => Self::resolve_list_ref(hash, key, resolver)?.into(),
             Hkey::List(list) => Self::resolve_list(list, resolver)?.into(),
+            Hkey::LongHkey(lhkey) => {
+                let expanded = lhkey.expand(resolver, &Compressor::new())?;
+                let data = expanded.resolve(resolver)?;
+
+                DataChunk::from(data)
+            }
         };
 
         Ok(chunk)
@@ -239,6 +248,12 @@ impl Hkey {
                 .await?
                 .into(),
             Hkey::List(list) => Self::resolve_list_async(list, resolver).await?.into(),
+            Hkey::LongHkey(lhkey) => lhkey
+                .expand_async(resolver)
+                .await?
+                .resolve_async(resolver)
+                .await?
+                .into(),
         };
 
         Ok(chunk)
@@ -315,6 +330,7 @@ impl From<&Hkey> for String {
             Hkey::Encrypted(hash, key) => format!("E{}{}", hash, key),
             Hkey::ListRef(hash, key) => format!("L{}{}", hash, key),
             Hkey::List(list) => Hkey::format_list(list),
+            Hkey::LongHkey(lhkey) => format!("{}", lhkey),
         }
     }
 }

@@ -132,6 +132,46 @@ impl LongHkeyExpanded {
         }
         .ok()
     }
+
+    pub fn resolve<'lt, E, F>(&self, resolver: &F) -> Result<Arc<[u8]>, E>
+    where
+        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
+        F: Fn(&Hash) -> Result<DataChunk<'lt>, E> + Sync,
+    {
+        let _ = resolver;
+        todo!()
+    }
+
+    pub fn resolve_slice<'lt, E, F>(&self, resolver: &F, range: Range) -> Result<Arc<[u8]>, E>
+    where
+        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
+        F: Fn(&Hash) -> Result<DataChunk<'lt>, E> + Sync,
+    {
+        let _ = (resolver, range);
+        todo!()
+    }
+
+    pub async fn resolve_async<'lt, E, F>(&self, resolver: &F) -> Result<Arc<[u8]>, E>
+    where
+        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
+        F: Fn(&Hash) -> Pin<Box<dyn Future<Output = Result<DataChunk<'lt>, E>>>> + Sync,
+    {
+        let _ = resolver;
+        todo!()
+    }
+
+    pub async fn resolve_slice_async<'lt, E, F>(
+        &self,
+        resolver: &F,
+        range: Range,
+    ) -> Result<Arc<[u8]>, E>
+    where
+        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
+        F: Fn(&Hash) -> Pin<Box<dyn Future<Output = Result<DataChunk<'lt>, E>>>> + Sync,
+    {
+        let _ = (resolver, range);
+        todo!()
+    }
 }
 
 impl Display for LongHkeyExpanded {
