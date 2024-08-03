@@ -394,6 +394,88 @@ impl Hkey {
 
         Ok(OwnedDataChunk::from_data(data))
     }
+
+    pub async fn resolve_list_ref_slice_async<'lt, E, F>(
+        hash: &Hash,
+        key: &[u8],
+        resolver: &F,
+        range: Range,
+    ) -> TResult<Arc<[u8]>, E>
+    where
+        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
+        F: Fn(&Hash) -> Pin<Box<dyn Future<Output = TResult<DataChunk<'lt>, E>>>> + Sync,
+    {
+        let resolved = resolver(hash).await?;
+        let decrypted = resolved.decrypt(key, &Compressor::new())?;
+        let hkey = Hkey::from(decrypted.data_ref());
+
+        hkey.resolve_slice_async_box(resolver, range).await
+    }
+
+    pub async fn resolve_list_slice_async<'k, 'lt, E, F>(
+        list: &'k [Hkey],
+        resolver: &F,
+        range: Range,
+    ) -> TResult<Arc<[u8]>, E>
+    where
+        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
+        F: Fn(&Hash) -> Pin<Box<dyn Future<Output = TResult<DataChunk<'lt>, E>>>> + Sync,
+    {
+        let _ = (list, resolver, range);
+        todo!()
+    }
+
+    pub fn resolve_slice_async_box<'a, 'lt, E, F>(
+        &'a self,
+        resolver: &'a F,
+        range: Range,
+    ) -> Pin<Box<dyn Future<Output = TResult<Arc<[u8]>, E>> + 'a>>
+    where
+        'lt: 'a,
+        E: From<PsDataChunkError> + From<PsHkeyError> + Send + 'a,
+        F: Fn(&Hash) -> Pin<Box<dyn Future<Output = TResult<DataChunk<'lt>, E>>>> + Sync + 'a,
+    {
+        Box::pin(async move { self.resolve_slice_async(resolver, range).await })
+    }
+
+    pub async fn resolve_slice_async<'lt, E, F>(
+        &self,
+        resolver: &F,
+        range: Range,
+    ) -> TResult<Arc<[u8]>, E>
+    where
+        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
+        F: Fn(&Hash) -> Pin<Box<dyn Future<Output = TResult<DataChunk<'lt>, E>>>> + Sync,
+    {
+        match self {
+            Hkey::List(list) => Self::resolve_list_slice_async(list, resolver, range).await,
+
+            Hkey::ListRef(hash, key) => {
+                Self::resolve_list_ref_slice_async(hash, key.as_bytes(), resolver, range).await
+            }
+
+            Hkey::LongHkey(lhkey) => {
+                lhkey
+                    .expand_async(resolver)
+                    .await?
+                    .resolve_slice_async(resolver, range)
+                    .await
+            }
+
+            Hkey::LongHkeyExpanded(lhkey) => lhkey.resolve_slice_async(resolver, range).await,
+
+            _ => {
+                let chunk = self.resolve_async(resolver).await?;
+                let bytes = chunk.data_ref();
+
+                if let Some(slice) = bytes.get(range) {
+                    return Ok(Arc::from(slice));
+                }
+
+                PsHkeyError::RangeError(bytes.len()).err()?
+            }
+        }
+    }
 }
 
 impl From<&Hkey> for String {
