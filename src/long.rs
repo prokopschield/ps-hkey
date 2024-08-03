@@ -2,6 +2,7 @@ use crate::Hkey;
 use crate::PsHkeyError;
 use ps_datachunk::Compressor;
 use ps_datachunk::DataChunk;
+use ps_datachunk::OwnedDataChunk;
 use ps_datachunk::PsDataChunkError;
 use ps_hash::Hash;
 use ps_util::ToResult;
@@ -24,18 +25,10 @@ impl Display for LongHkey {
 }
 
 impl LongHkey {
-    pub fn expand<'lt, E, F>(
-        &self,
-        resolver: &F,
-        compressor: &Compressor,
-    ) -> Result<LongHkeyExpanded, E>
+    pub fn expand_from_lhkey_str<'lt, E>(expanded_data: &[u8]) -> Result<LongHkeyExpanded, E>
     where
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Result<DataChunk<'lt>, E> + Sync,
     {
-        let expanded_chunk = resolver(&self.hash)?.decrypt(self.key.as_bytes(), compressor)?;
-        let expanded_data = expanded_chunk.data_ref();
-
         if expanded_data.len() < 6 {
             // empty array: {0;0;}
             Err(PsHkeyError::FormatError)?
@@ -71,6 +64,33 @@ impl LongHkey {
         let parts = parts?.into_boxed_slice().into();
 
         LongHkeyExpanded::new(depth, size, parts).ok()
+    }
+
+    #[inline(always)]
+    pub fn expand_from_lhkey_encrypted_str<'lt, E>(
+        &self,
+        encrypted: &[u8],
+        compressor: &Compressor,
+    ) -> Result<LongHkeyExpanded, E>
+    where
+        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
+    {
+        let lhkey_str = OwnedDataChunk::decrypt_bytes(encrypted, self.key.as_bytes(), compressor)?;
+
+        Self::expand_from_lhkey_str(lhkey_str.data_ref())
+    }
+
+    #[inline(always)]
+    pub fn expand<'lt, E, F>(
+        &self,
+        resolver: &F,
+        compressor: &Compressor,
+    ) -> Result<LongHkeyExpanded, E>
+    where
+        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
+        F: Fn(&Hash) -> Result<DataChunk<'lt>, E> + Sync,
+    {
+        Self::expand_from_lhkey_encrypted_str(self, resolver(&self.hash)?.data_ref(), compressor)
     }
 }
 
