@@ -6,6 +6,8 @@ use ps_datachunk::OwnedDataChunk;
 use ps_datachunk::PsDataChunkError;
 use ps_hash::Hash;
 use ps_util::ToResult;
+use rayon::iter::IntoParallelRefIterator;
+use rayon::iter::ParallelIterator;
 use std::fmt::Display;
 use std::fmt::Write;
 use std::future::Future;
@@ -143,8 +145,38 @@ impl LongHkeyExpanded {
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         F: Fn(&Hash) -> Result<DataChunk<'lt>, E> + Sync,
     {
-        let _ = (resolver, range);
-        todo!()
+        // Collect the data chunks in parallel
+        let result: Result<Vec<Vec<u8>>, E> = self
+            .parts
+            .par_iter()
+            .filter_map(|(part_range, hkey)| {
+                if part_range.end <= range.start || part_range.start >= range.end {
+                    // Skip parts that are completely outside the requested range
+                    None
+                } else {
+                    // Calculate the overlapping range
+                    let overlap_start = range.start.max(part_range.start) - part_range.start;
+                    let overlap_end = range.end.min(part_range.end) - part_range.start;
+                    let overlap_range = overlap_start..overlap_end;
+
+                    // Fetch the data chunk using the resolver
+                    Some(hkey.resolve_slice(resolver, overlap_range))
+                }
+            })
+            .map(|bytes| bytes?.to_vec().ok())
+            .collect();
+
+        let vectors = result?;
+
+        // Combine the results into a single vector
+        let mut combined_result = Vec::with_capacity(range.end - range.start);
+
+        for data in vectors {
+            combined_result.extend_from_slice(&data)
+        }
+
+        // Convert the result vector into an Arc<[u8]>
+        Ok(combined_result.into())
     }
 
     pub async fn resolve_async<'lt, E, F>(&self, resolver: &F) -> Result<Arc<[u8]>, E>
