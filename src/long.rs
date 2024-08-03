@@ -193,3 +193,36 @@ impl Display for LongHkeyExpanded {
         f.write_char('}')
     }
 }
+
+/// the longer buffer is greater, or compare parts
+impl Ord for LongHkeyExpanded {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let cmp = self.size.cmp(&other.size);
+
+        if cmp != std::cmp::Ordering::Equal {
+            return cmp;
+        }
+
+        let cmp = self.parts.len().cmp(&other.parts.len());
+
+        if cmp != std::cmp::Ordering::Equal {
+            return cmp;
+        }
+
+        for i in 0..self.parts.len() {
+            let cmp = self.parts[i].1.cmp(&other.parts[i].1);
+
+            if cmp != std::cmp::Ordering::Equal {
+                return cmp;
+            }
+        }
+
+        std::cmp::Ordering::Equal
+    }
+}
+
+impl PartialOrd for LongHkeyExpanded {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.cmp(other).some()
+    }
+}
