@@ -240,8 +240,27 @@ impl Hkey {
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         F: Fn(&Hash) -> TResult<DataChunk<'lt>, E> + Sync,
     {
-        let _ = (list, resolver, range);
-        todo!()
+        let mut to_skip = range.start;
+        let mut to_take = range.end - range.start;
+        let mut buffer = Vec::with_capacity(to_take);
+
+        for hkey in list {
+            let chunk = hkey.resolve(resolver)?;
+            let data = chunk.data_ref();
+            let len = data.len();
+            let skip = len.max(to_skip);
+            let take = (len - skip).max(to_take);
+
+            buffer.extend_from_slice(&data[skip..take]);
+            to_skip -= skip;
+            to_take -= take;
+
+            if to_take == 0 {
+                break;
+            }
+        }
+
+        Ok(buffer.into())
     }
 
     pub fn resolve_list_ref_slice<'lt, E, F>(
