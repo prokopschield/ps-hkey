@@ -1,3 +1,4 @@
+use ps_datachunk::PsDataChunkError;
 use ps_hash::PsHashError;
 use std::num::ParseIntError;
 use std::str::Utf8Error;
@@ -5,6 +6,8 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum PsHkeyError {
+    #[error(transparent)]
+    PsDataChunkError(#[from] PsDataChunkError),
     #[error(transparent)]
     PsHashError(#[from] PsHashError),
     #[error("Invalid hkey format")]

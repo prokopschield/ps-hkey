@@ -27,10 +27,7 @@ impl Display for LongHkey {
 }
 
 impl LongHkey {
-    pub fn expand_from_lhkey_str<'lt, E>(expanded_data: &[u8]) -> Result<LongHkeyExpanded, E>
-    where
-        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-    {
+    pub fn expand_from_lhkey_str(expanded_data: &[u8]) -> Result<LongHkeyExpanded, PsHkeyError> {
         if expanded_data.len() < 6 {
             // empty array: {0;0;}
             Err(PsHkeyError::FormatError)?
@@ -69,14 +66,11 @@ impl LongHkey {
     }
 
     #[inline(always)]
-    pub fn expand_from_lhkey_encrypted_str<'lt, E>(
+    pub fn expand_from_lhkey_encrypted_str(
         &self,
         encrypted: &[u8],
         compressor: &Compressor,
-    ) -> Result<LongHkeyExpanded, E>
-    where
-        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-    {
+    ) -> Result<LongHkeyExpanded, PsHkeyError> {
         let lhkey_str = OwnedDataChunk::decrypt_bytes(encrypted, self.key.as_bytes(), compressor)?;
 
         Self::expand_from_lhkey_str(lhkey_str.data_ref())
@@ -92,7 +86,9 @@ impl LongHkey {
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         F: Fn(&Hash) -> Result<DataChunk<'lt>, E> + Sync,
     {
-        Self::expand_from_lhkey_encrypted_str(self, resolver(&self.hash)?.data_ref(), compressor)
+        let encrypted = resolver(&self.hash)?;
+
+        Self::expand_from_lhkey_encrypted_str(self, encrypted.data_ref(), compressor)?.ok()
     }
 
     #[inline(always)]
@@ -105,7 +101,7 @@ impl LongHkey {
         let chunk = future.await?;
         let bytes = chunk.data_ref();
 
-        Self::expand_from_lhkey_encrypted_str(self, bytes, &Compressor::new())
+        Self::expand_from_lhkey_encrypted_str(self, bytes, &Compressor::new())?.ok()
     }
 }
 
