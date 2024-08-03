@@ -226,3 +226,39 @@ impl PartialOrd for LongHkeyExpanded {
         self.cmp(other).some()
     }
 }
+
+impl From<LongHkey> for Hkey {
+    fn from(lhkey: LongHkey) -> Self {
+        Hkey::LongHkey(Arc::from(lhkey))
+    }
+}
+
+impl From<Arc<LongHkey>> for Hkey {
+    fn from(lhkey: Arc<LongHkey>) -> Self {
+        Hkey::LongHkey(lhkey)
+    }
+}
+
+impl From<&Arc<LongHkey>> for Hkey {
+    fn from(lhkey: &Arc<LongHkey>) -> Self {
+        Hkey::LongHkey(lhkey.clone())
+    }
+}
+
+impl From<LongHkeyExpanded> for Hkey {
+    fn from(lhkey: LongHkeyExpanded) -> Self {
+        Hkey::LongHkeyExpanded(Arc::from(lhkey))
+    }
+}
+
+impl From<Arc<LongHkeyExpanded>> for Hkey {
+    fn from(lhkey: Arc<LongHkeyExpanded>) -> Self {
+        Hkey::LongHkeyExpanded(lhkey)
+    }
+}
+
+impl From<&Arc<LongHkeyExpanded>> for Hkey {
+    fn from(lhkey: &Arc<LongHkeyExpanded>) -> Self {
+        Hkey::LongHkeyExpanded(lhkey.clone())
+    }
+}
