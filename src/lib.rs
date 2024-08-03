@@ -9,6 +9,7 @@ use ps_datachunk::DataChunk;
 use ps_datachunk::OwnedDataChunk;
 use ps_datachunk::PsDataChunkError;
 pub use ps_hash::Hash;
+use ps_util::ToResult;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 use std::future::Future;
@@ -100,6 +101,12 @@ impl Hkey {
         Ok(list)
     }
 
+    pub fn try_as_long(lhkey_str: &[u8]) -> Result<Self> {
+        let lhkey = LongHkey::expand_from_lhkey_str(lhkey_str)?;
+
+        return Self::from(lhkey).ok();
+    }
+
     pub fn try_as_prefixed(value: &[u8]) -> Result<Self> {
         match value[0] {
             b'B' => Ok(Self::from_base64_slice(&value[1..])),
@@ -107,6 +114,7 @@ impl Hkey {
             b'E' => Self::try_as_encrypted(&value[1..]),
             b'L' => Self::try_as_list_ref(&value[1..]),
             b'[' => Self::try_as_list(&value),
+            b'{' => Self::try_as_long(value),
             _ => Ok(Self::from_base64_slice(value)),
         }
     }
