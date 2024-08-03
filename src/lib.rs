@@ -3,6 +3,7 @@ pub mod long;
 pub use error::PsHkeyError;
 pub use error::Result;
 use long::LongHkey;
+use long::LongHkeyExpanded;
 use ps_datachunk::Compressor;
 use ps_datachunk::DataChunk;
 use ps_datachunk::OwnedDataChunk;
@@ -31,6 +32,8 @@ pub enum Hkey {
     List(Arc<[Hkey]>),
     /// LongHkey representing a very large buffer
     LongHkey(Arc<LongHkey>),
+    /// an expanded LongHkey
+    LongHkeyExpanded(Arc<LongHkeyExpanded>),
 }
 
 impl Hkey {
@@ -161,6 +164,7 @@ impl Hkey {
 
                 DataChunk::from(data)
             }
+            Hkey::LongHkeyExpanded(lhkey) => lhkey.resolve(resolver)?.into(),
         };
 
         Ok(chunk)
@@ -254,6 +258,7 @@ impl Hkey {
                 .resolve_async(resolver)
                 .await?
                 .into(),
+            Hkey::LongHkeyExpanded(lhkey) => lhkey.resolve_async(resolver).await?.into(),
         };
 
         Ok(chunk)
@@ -331,6 +336,7 @@ impl From<&Hkey> for String {
             Hkey::ListRef(hash, key) => format!("L{}{}", hash, key),
             Hkey::List(list) => Hkey::format_list(list),
             Hkey::LongHkey(lhkey) => format!("{}", lhkey),
+            Hkey::LongHkeyExpanded(lhkey) => format!("{}", lhkey),
         }
     }
 }
