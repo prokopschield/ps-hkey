@@ -140,7 +140,7 @@ impl Hkey {
 
     pub fn resolve<'lt, E, F>(&self, resolver: &F) -> TResult<DataChunk<'lt>, E>
     where
-        E: From<PsDataChunkError> + Send,
+        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         F: Fn(&Hash) -> TResult<DataChunk<'lt>, E> + Sync,
     {
         let chunk = match self {
@@ -178,7 +178,7 @@ impl Hkey {
         resolver: &F,
     ) -> TResult<DataChunk<'lt>, E>
     where
-        E: From<PsDataChunkError> + Send,
+        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         F: Fn(&Hash) -> TResult<DataChunk<'lt>, E> + Sync,
     {
         let list_bytes = Self::resolve_encrypted(hash, key, resolver)?;
@@ -188,7 +188,7 @@ impl Hkey {
 
     pub fn resolve_list<'lt, E, F>(list: &[Hkey], resolver: &F) -> TResult<OwnedDataChunk, E>
     where
-        E: From<PsDataChunkError> + Send,
+        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         F: Fn(&Hash) -> TResult<DataChunk<'lt>, E> + Sync,
     {
         // Parallel iterator over the list
@@ -215,7 +215,7 @@ impl Hkey {
     ) -> Pin<Box<dyn Future<Output = TResult<DataChunk<'lt>, E>> + 'a>>
     where
         'lt: 'a,
-        E: From<PsDataChunkError> + Send + 'a,
+        E: From<PsDataChunkError> + From<PsHkeyError> + Send + 'a,
         F: Fn(&Hash) -> Pin<Box<dyn Future<Output = TResult<DataChunk<'lt>, E>>>> + Sync + 'a,
     {
         Box::pin(async move { self.resolve_async(resolver).await })
@@ -223,7 +223,7 @@ impl Hkey {
 
     pub async fn resolve_async<'lt, E, F>(&self, resolver: &F) -> TResult<DataChunk<'lt>, E>
     where
-        E: From<PsDataChunkError> + Send,
+        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         F: Fn(&Hash) -> Pin<Box<dyn Future<Output = TResult<DataChunk<'lt>, E>>>> + Sync,
     {
         let chunk = match self {
@@ -265,7 +265,7 @@ impl Hkey {
         resolver: &F,
     ) -> TResult<DataChunk<'lt>, E>
     where
-        E: From<PsDataChunkError> + Send,
+        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         F: Fn(&Hash) -> Pin<Box<dyn Future<Output = TResult<DataChunk<'lt>, E>>>> + Sync,
     {
         let list_bytes = Self::resolve_encrypted_async(hash, key, resolver).await?;
@@ -280,7 +280,7 @@ impl Hkey {
         resolver: &F,
     ) -> TResult<OwnedDataChunk, E>
     where
-        E: From<PsDataChunkError> + Send,
+        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         F: Fn(&Hash) -> Pin<Box<dyn Future<Output = TResult<DataChunk<'lt>, E>>>> + Sync,
     {
         // Iterator over the list
