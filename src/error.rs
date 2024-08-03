@@ -12,6 +12,8 @@ pub enum PsHkeyError {
     PsHashError(#[from] PsHashError),
     #[error("Invalid hkey format")]
     FormatError,
+    #[error("Invalid range, entity is of size {0}")]
+    RangeError(usize),
     #[error("Failed to store with external storage function")]
     StorageError,
     #[error(transparent)]

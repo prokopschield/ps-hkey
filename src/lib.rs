@@ -4,6 +4,7 @@ pub use error::PsHkeyError;
 pub use error::Result;
 use long::LongHkey;
 use long::LongHkeyExpanded;
+use long::Range;
 use ps_datachunk::Compressor;
 use ps_datachunk::DataChunk;
 use ps_datachunk::OwnedDataChunk;
@@ -228,6 +229,67 @@ impl Hkey {
         }
 
         Ok(OwnedDataChunk::from_data(data))
+    }
+
+    pub fn resolve_list_slice<'lt, E, F>(
+        list: &[Hkey],
+        resolver: &F,
+        range: Range,
+    ) -> TResult<Arc<[u8]>, E>
+    where
+        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
+        F: Fn(&Hash) -> TResult<DataChunk<'lt>, E> + Sync,
+    {
+        let _ = (list, resolver, range);
+        todo!()
+    }
+
+    pub fn resolve_list_ref_slice<'lt, E, F>(
+        hash: &Hash,
+        key: &[u8],
+        resolver: &F,
+        range: Range,
+    ) -> TResult<Arc<[u8]>, E>
+    where
+        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
+        F: Fn(&Hash) -> TResult<DataChunk<'lt>, E> + Sync,
+    {
+        let resolved = resolver(hash)?;
+        let decrypted = resolved.decrypt(key, &Compressor::new())?;
+        let hkey = Hkey::from(decrypted.data_ref());
+
+        hkey.resolve_slice(resolver, range)
+    }
+
+    pub fn resolve_slice<'lt, E, F>(&self, resolver: &F, range: Range) -> TResult<Arc<[u8]>, E>
+    where
+        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
+        F: Fn(&Hash) -> TResult<DataChunk<'lt>, E> + Sync,
+    {
+        match self {
+            Hkey::List(list) => Self::resolve_list_slice(list, resolver, range),
+
+            Hkey::ListRef(hash, key) => {
+                Self::resolve_list_ref_slice(hash, key.as_bytes(), resolver, range)
+            }
+
+            Hkey::LongHkey(lhkey) => lhkey
+                .expand(resolver, &Compressor::new())?
+                .resolve_slice(resolver, range),
+
+            Hkey::LongHkeyExpanded(lhkey) => lhkey.resolve_slice(resolver, range),
+
+            _ => {
+                let chunk = self.resolve(resolver)?;
+                let bytes = chunk.data_ref();
+
+                if let Some(slice) = bytes.get(range) {
+                    return Ok(Arc::from(slice));
+                }
+
+                PsHkeyError::RangeError(bytes.len()).err()?
+            }
+        }
     }
 
     pub fn resolve_async_box<'a, 'lt, E, F>(
