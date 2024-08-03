@@ -8,6 +8,8 @@ use ps_hash::Hash;
 use ps_util::ToResult;
 use std::fmt::Display;
 use std::fmt::Write;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 
 pub type Range = std::ops::Range<usize>;
@@ -91,6 +93,19 @@ impl LongHkey {
         F: Fn(&Hash) -> Result<DataChunk<'lt>, E> + Sync,
     {
         Self::expand_from_lhkey_encrypted_str(self, resolver(&self.hash)?.data_ref(), compressor)
+    }
+
+    #[inline(always)]
+    pub async fn expand_async<'lt, E, F>(&self, resolver: &F) -> Result<LongHkeyExpanded, E>
+    where
+        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
+        F: Fn(&Hash) -> Pin<Box<dyn Future<Output = Result<DataChunk<'lt>, E>>>> + Sync,
+    {
+        let future = resolver(&self.hash);
+        let chunk = future.await?;
+        let bytes = chunk.data_ref();
+
+        Self::expand_from_lhkey_encrypted_str(self, bytes, &Compressor::new())
     }
 }
 
