@@ -53,7 +53,7 @@ impl LongHkey {
 
         let parts_data = &expanded_data[1..expanded_data.len() - 1];
         let parts_data = std::str::from_utf8(parts_data);
-        let parts_data = parts_data.map_err(|err| PsHkeyError::from(err))?;
+        let parts_data = parts_data.map_err(PsHkeyError::from)?;
 
         let parts: Vec<&str> = parts_data.split(';').collect();
 
@@ -61,8 +61,8 @@ impl LongHkey {
             Err(PsHkeyError::FormatError)?
         }
 
-        let depth: usize = parts[0].parse().map_err(|err| PsHkeyError::from(err))?;
-        let size: usize = parts[1].parse().map_err(|err| PsHkeyError::from(err))?;
+        let depth: usize = parts[0].parse().map_err(PsHkeyError::from)?;
+        let size: usize = parts[1].parse().map_err(PsHkeyError::from)?;
 
         let parts = parts[2].split(',').map(|part| {
             let (range, hkey) = part.split_once(':').ok_or(PsHkeyError::FormatError)?;

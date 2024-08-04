@@ -86,7 +86,7 @@ impl Hkey {
 
     pub fn try_as_list(list: &[u8]) -> Result<Self> {
         let last_index = list.len() - 1;
-        let first = *list.get(0).ok_or(PsHkeyError::FormatError)?;
+        let first = *list.first().ok_or(PsHkeyError::FormatError)?;
         let last = *list.get(last_index).ok_or(PsHkeyError::FormatError)?;
         let content = &list[1..last_index];
 
@@ -106,7 +106,7 @@ impl Hkey {
     pub fn try_as_long(lhkey_str: &[u8]) -> Result<Self> {
         let lhkey = LongHkey::expand_from_lhkey_str(lhkey_str)?;
 
-        return Self::from(lhkey).ok();
+        Self::from(lhkey).ok()
     }
 
     pub fn try_as_prefixed(value: &[u8]) -> Result<Self> {
@@ -115,7 +115,7 @@ impl Hkey {
             b'D' => Self::try_as_direct(&value[1..]),
             b'E' => Self::try_as_encrypted(&value[1..]),
             b'L' => Self::try_as_list_ref(&value[1..]),
-            b'[' => Self::try_as_list(&value),
+            b'[' => Self::try_as_list(value),
             b'{' => Self::try_as_long(value),
             _ => Ok(Self::from_base64_slice(value)),
         }
@@ -137,14 +137,14 @@ impl Hkey {
     }
 
     pub fn format_list(list: &[Hkey]) -> String {
-        let first = match list.get(0) {
+        let first = match list.first() {
             Some(first) => first,
-            None => return format!("[]"),
+            None => return "[]".to_string(),
         };
 
         let mut accumulator = format!("[{}", first);
 
-        list[1..].into_iter().for_each(|hkey| {
+        list[1..].iter().for_each(|hkey| {
             accumulator.push(',');
             accumulator.push_str(&hkey.to_string());
         });
@@ -166,7 +166,7 @@ impl Hkey {
             }
             Hkey::Direct(hash) => resolver(hash)?,
             Hkey::Encrypted(hash, key) => Self::resolve_encrypted(hash, key, resolver)?.into(),
-            Hkey::ListRef(hash, key) => Self::resolve_list_ref(hash, key, resolver)?.into(),
+            Hkey::ListRef(hash, key) => Self::resolve_list_ref(hash, key, resolver)?,
             Hkey::List(list) => Self::resolve_list(list, resolver)?.into(),
             Hkey::LongHkey(lhkey) => {
                 let expanded = lhkey.expand(resolver, &Compressor::new())?;
@@ -192,7 +192,7 @@ impl Hkey {
         let encrypted = resolver(hash)?;
         let decrypted = encrypted.decrypt(key.as_bytes(), &Compressor::new())?;
 
-        Ok(decrypted.into())
+        Ok(decrypted)
     }
 
     pub fn resolve_list_ref<'lt, E, F>(
@@ -339,8 +339,7 @@ impl Hkey {
                 .await?
                 .into(),
             Hkey::ListRef(hash, key) => Self::resolve_list_ref_async(hash, key, resolver)
-                .await?
-                .into(),
+                .await?,
             Hkey::List(list) => Self::resolve_list_async(list, resolver).await?.into(),
             Hkey::LongHkey(lhkey) => lhkey
                 .expand_async(resolver)
@@ -366,7 +365,7 @@ impl Hkey {
         let encrypted = resolver(hash).await?;
         let decrypted = encrypted.decrypt(key.as_bytes(), &Compressor::new())?;
 
-        Ok(decrypted.into())
+        Ok(decrypted)
     }
 
     pub async fn resolve_list_ref_async<'lt, E, F>(
@@ -394,7 +393,7 @@ impl Hkey {
         F: Fn(&Hash) -> Pin<Box<dyn Future<Output = TResult<DataChunk<'lt>, E>>>> + Sync,
     {
         // Iterator over the list
-        let hkey_iter = list.into_iter();
+        let hkey_iter = list.iter();
 
         // Closure to resolve each Hkey
         let closure = |hkey: &'k Hkey| hkey.resolve_async_box(resolver);
