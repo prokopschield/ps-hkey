@@ -147,7 +147,7 @@ impl LongHkeyExpanded {
         F: Fn(&Hash) -> Result<DataChunk<'lt>, E> + Sync,
     {
         // Collect the data chunks in parallel
-        let result: Result<Vec<Vec<u8>>, E> = self
+        let result: Result<Vec<Arc<[u8]>>, E> = self
             .parts
             .par_iter()
             .filter_map(|(part_range, hkey)| {
@@ -164,16 +164,15 @@ impl LongHkeyExpanded {
                     Some(hkey.resolve_slice(resolver, overlap_range))
                 }
             })
-            .map(|bytes| bytes?.to_vec().ok())
             .collect();
 
-        let vectors = result?;
+        let parts = result?;
 
         // Combine the results into a single vector
         let mut combined_result = Vec::with_capacity(range.end - range.start);
 
-        for data in vectors {
-            combined_result.extend_from_slice(&data)
+        for part in parts {
+            combined_result.extend_from_slice(&part)
         }
 
         // Convert the result vector into an Arc<[u8]>
