@@ -137,8 +137,7 @@ impl LongHkeyExpanded {
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         F: Fn(&Hash) -> Result<DataChunk<'lt>, E> + Sync,
     {
-        let _ = resolver;
-        todo!()
+        self.resolve_slice(resolver, 0..self.size)
     }
 
     pub fn resolve_slice<'lt, E, F>(&self, resolver: &F, range: Range) -> Result<Arc<[u8]>, E>
@@ -184,8 +183,7 @@ impl LongHkeyExpanded {
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         F: Fn(&Hash) -> Pin<Box<dyn Future<Output = Result<DataChunk<'lt>, E>>>> + Sync,
     {
-        let _ = resolver;
-        todo!()
+        self.resolve_slice_async(resolver, 0..self.size).await
     }
 
     pub async fn resolve_slice_async<'lt, E, F>(
