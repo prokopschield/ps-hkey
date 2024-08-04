@@ -514,6 +514,42 @@ impl Hkey {
             }
         }
     }
+
+    pub fn shrink<'lt, E, F>(&self, store: &F) -> TResult<String, E>
+    where
+        E: From<PsHkeyError> + Send,
+        F: Fn(&[u8]) -> TResult<Hkey, E> + Sync,
+    {
+        match self {
+            Self::Raw(raw) => {
+                if raw.len() < 75 {
+                    self.into()
+                } else {
+                    store(raw)?.shrink(store)?
+                }
+            }
+            Self::Base64(base64) => {
+                if base64.len() < 99 {
+                    self.into()
+                } else {
+                    store(&ps_base64::decode(base64.as_bytes()))?.shrink(store)?
+                }
+            }
+            Self::List(list) => {
+                let stored = store(Self::format_list(list).as_bytes())?;
+
+                match stored {
+                    Self::Encrypted(hash, key) => (&Self::ListRef(hash, key)).into(),
+                    _ => Err(PsHkeyError::StorageError)?,
+                }
+            }
+            Self::LongHkeyExpanded(lhkey) => {
+                Hkey::LongHkey(lhkey.store(store)?.into()).shrink(store)?
+            }
+            _ => self.into(),
+        }
+        .ok()
+    }
 }
 
 impl From<&Hkey> for String {
