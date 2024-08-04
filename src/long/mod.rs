@@ -4,6 +4,7 @@ pub use long_hkey::LongHkey;
 
 use crate::Hkey;
 use crate::PsHkeyError;
+use crate::Range;
 use futures::future::try_join_all;
 use ps_datachunk::DataChunk;
 use ps_datachunk::PsDataChunkError;
@@ -16,8 +17,6 @@ use std::fmt::Write;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
-
-pub type Range = std::ops::Range<usize>;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct LongHkeyExpanded {

@@ -4,7 +4,6 @@ pub use error::PsHkeyError;
 pub use error::Result;
 use long::LongHkey;
 use long::LongHkeyExpanded;
-use long::Range;
 use ps_datachunk::Compressor;
 use ps_datachunk::DataChunk;
 use ps_datachunk::OwnedDataChunk;
@@ -17,6 +16,8 @@ use std::future::Future;
 use std::pin::Pin;
 use std::result::Result as TResult;
 use std::sync::Arc;
+
+pub type Range = std::ops::Range<usize>;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Hkey {
