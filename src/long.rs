@@ -30,6 +30,22 @@ impl Display for LongHkey {
 }
 
 impl LongHkey {
+    pub fn hash(&self) -> Arc<Hash> {
+        self.hash.clone()
+    }
+
+    pub fn hash_ref(&self) -> &Hash {
+        &self.hash
+    }
+
+    pub fn key(&self) -> Arc<Hash> {
+        self.key.clone()
+    }
+
+    pub fn key_ref(&self) -> &Hash {
+        &self.key
+    }
+
     pub fn expand_from_lhkey_str(expanded_data: &[u8]) -> Result<LongHkeyExpanded, PsHkeyError> {
         if expanded_data.len() < 6 {
             // empty array: {0;0;}
