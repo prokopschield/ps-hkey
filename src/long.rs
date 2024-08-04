@@ -1,5 +1,6 @@
 use crate::Hkey;
 use crate::PsHkeyError;
+use futures::future::try_join_all;
 use ps_datachunk::Compressor;
 use ps_datachunk::DataChunk;
 use ps_datachunk::OwnedDataChunk;
@@ -197,8 +198,40 @@ impl LongHkeyExpanded {
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         F: Fn(&Hash) -> Pin<Box<dyn Future<Output = Result<DataChunk<'lt>, E>>>> + Sync,
     {
-        let _ = (resolver, range);
-        todo!()
+        let futures = self
+            .parts
+            .iter()
+            .filter_map(|(part_range, hkey)| {
+                if part_range.end <= range.start || part_range.start >= range.end {
+                    // Skip parts that are completely outside the requested range
+                    None
+                } else {
+                    // Calculate the overlapping range
+                    let overlap_start = range.start.max(part_range.start) - part_range.start;
+                    let overlap_end = range.end.min(part_range.end) - part_range.start;
+                    let overlap_range = overlap_start..overlap_end;
+
+                    // Fetch the data chunk using the resolver
+                    Some((hkey, overlap_range))
+                }
+            })
+            .map(|(hkey, overlap_range)| async move {
+                let chunk = hkey.resolve_slice_async(resolver, overlap_range).await?;
+
+                Ok::<_, E>(chunk)
+            });
+
+        let parts = try_join_all(futures).await?;
+
+        // Combine the results into a single vector
+        let mut combined_result = Vec::with_capacity(range.end - range.start);
+
+        for part in parts {
+            combined_result.extend_from_slice(&part)
+        }
+
+        // Convert the result vector into an Arc<[u8]>
+        Ok(combined_result.into())
     }
 }
 
