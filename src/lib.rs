@@ -550,6 +550,46 @@ impl Hkey {
         }
         .ok()
     }
+
+    pub async fn shrink_async<'lt, E, F>(&self, store: &F) -> TResult<String, E>
+    where
+        E: From<PsHkeyError> + Send,
+        F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Hkey, E>>>> + Sync,
+    {
+        match self {
+            Self::Raw(raw) => {
+                if raw.len() < 75 {
+                    self.into()
+                } else {
+                    store(raw).await?.shrink_async(store).await?
+                }
+            }
+            Self::Base64(base64) => {
+                if base64.len() < 99 {
+                    self.into()
+                } else {
+                    store(&ps_base64::decode(base64.as_bytes()))
+                        .await?
+                        .shrink_async(store)
+                        .await?
+                }
+            }
+            Self::List(list) => {
+                let stored = store(Self::format_list(list).as_bytes()).await?;
+
+                match stored {
+                    Self::Encrypted(hash, key) => (&Self::ListRef(hash, key)).into(),
+                    _ => Err(PsHkeyError::StorageError)?,
+                }
+            }
+            Self::LongHkeyExpanded(lhkey) => match store(format!("{}", lhkey).as_bytes()).await? {
+                Hkey::Encrypted(hash, key) => (&Hkey::ListRef(hash, key)).into(),
+                _ => Err(PsHkeyError::StorageError)?,
+            },
+            _ => self.into(),
+        }
+        .ok()
+    }
 }
 
 impl From<&Hkey> for String {
