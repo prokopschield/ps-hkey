@@ -338,8 +338,7 @@ impl Hkey {
             Hkey::Encrypted(hash, key) => Self::resolve_encrypted_async(hash, key, resolver)
                 .await?
                 .into(),
-            Hkey::ListRef(hash, key) => Self::resolve_list_ref_async(hash, key, resolver)
-                .await?,
+            Hkey::ListRef(hash, key) => Self::resolve_list_ref_async(hash, key, resolver).await?,
             Hkey::List(list) => Self::resolve_list_async(list, resolver).await?.into(),
             Hkey::LongHkey(lhkey) => lhkey
                 .expand_async(resolver)
