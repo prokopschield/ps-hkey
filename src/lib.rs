@@ -521,7 +521,7 @@ impl Hkey {
     {
         match self {
             Self::Raw(raw) => {
-                if raw.len() < 75 {
+                if raw.len() < 74 {
                     self.into()
                 } else {
                     store(raw)?.shrink(store)?
