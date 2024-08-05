@@ -1,3 +1,6 @@
+pub mod constants;
+pub mod methods;
+
 use std::{
     fmt::{Display, Write},
     future::Future,
