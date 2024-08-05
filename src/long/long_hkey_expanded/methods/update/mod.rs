@@ -12,7 +12,7 @@ use ps_util::ToResult;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
-    long::{long_hkey_expanded::constants::LHKEY_LEVEL_MAX_LENGTH, LongHkeyExpanded},
+    long::{long_hkey_expanded::constants::LHKEY_SEGMENT_MAX_LENGTH, LongHkeyExpanded},
     Hkey, PsHkeyError, Range,
 };
 
@@ -35,13 +35,13 @@ impl LongHkeyExpanded {
         let range = range.start..range.end.min(range.start + data.len());
         let length = self.size.max(range.end);
 
-        let iterator = (0..length.div_ceil(LHKEY_LEVEL_MAX_LENGTH)).into_par_iter();
+        let iterator = (0..length.div_ceil(LHKEY_SEGMENT_MAX_LENGTH)).into_par_iter();
         let resolver = |hash: &Hash| Ok::<_, E>(fetch(hash)?);
 
         let parts: Result<Vec<(Range, Hkey)>, E> = iterator
             .map(|index| {
-                let start = index.mul(LHKEY_LEVEL_MAX_LENGTH);
-                let end = (index + 1).mul(LHKEY_LEVEL_MAX_LENGTH).min(length);
+                let start = index.mul(LHKEY_SEGMENT_MAX_LENGTH);
+                let end = (index + 1).mul(LHKEY_SEGMENT_MAX_LENGTH).min(length);
 
                 match self.parts.get(index) {
                     Some(part) => {
