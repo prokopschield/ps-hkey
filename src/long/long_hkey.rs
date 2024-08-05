@@ -61,7 +61,7 @@ impl LongHkey {
             Err(PsHkeyError::FormatError)?
         }
 
-        let depth: usize = parts[0].parse().map_err(PsHkeyError::from)?;
+        let depth: u32 = parts[0].parse().map_err(PsHkeyError::from)?;
         let size: usize = parts[1].parse().map_err(PsHkeyError::from)?;
 
         let parts = parts[2].split(',').map(|part| {

@@ -17,13 +17,13 @@ use super::LongHkey;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct LongHkeyExpanded {
-    depth: usize,
+    depth: u32,
     size: usize,
     parts: Arc<[(Range, Hkey)]>,
 }
 
 impl LongHkeyExpanded {
-    pub fn new(depth: usize, size: usize, parts: Arc<[(Range, Hkey)]>) -> Self {
+    pub fn new(depth: u32, size: usize, parts: Arc<[(Range, Hkey)]>) -> Self {
         Self { depth, size, parts }
     }
 
