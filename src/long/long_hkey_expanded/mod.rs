@@ -19,11 +19,11 @@ use super::LongHkey;
 pub struct LongHkeyExpanded {
     depth: usize,
     size: usize,
-    parts: Arc<[(Range, Arc<Hkey>)]>,
+    parts: Arc<[(Range, Hkey)]>,
 }
 
 impl LongHkeyExpanded {
-    pub fn new(depth: usize, size: usize, parts: Arc<[(Range, Arc<Hkey>)]>) -> Self {
+    pub fn new(depth: usize, size: usize, parts: Arc<[(Range, Hkey)]>) -> Self {
         Self { depth, size, parts }
     }
 

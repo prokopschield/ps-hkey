@@ -70,7 +70,7 @@ impl LongHkey {
             let start: usize = start.parse()?;
             let end: usize = end.parse()?;
             let hkey: Hkey = Hkey::from(hkey);
-            Ok((start..end + 1, Arc::from(hkey)))
+            Ok((start..end + 1, hkey))
         });
 
         let parts: Result<Vec<_>, PsHkeyError> = parts.collect();
