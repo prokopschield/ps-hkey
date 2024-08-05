@@ -121,7 +121,7 @@ impl LongHkeyExpanded {
                 let start = index * segment_length;
                 let end = (index + 1).mul(segment_length).min(length);
                 let segment_range = start..end.min(self.size);
-                let segment = self.normalize_segment(fetch, store, depth, segment_range)?;
+                let segment = self.normalize_segment(fetch, store, depth - 1, segment_range)?;
 
                 if start >= range.end || end <= range.start {
                     // outside of modified range
