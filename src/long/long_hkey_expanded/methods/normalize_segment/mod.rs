@@ -110,6 +110,6 @@ impl LongHkeyExpanded {
 
         let lhkey = LongHkeyExpanded::new(depth, length, parts);
 
-        return Ok(Arc::from(lhkey));
+        Ok(Arc::from(lhkey))
     }
 }
