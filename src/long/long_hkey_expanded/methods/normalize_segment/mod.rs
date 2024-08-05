@@ -26,6 +26,10 @@ impl LongHkeyExpanded {
         F: Fn(&Hash) -> Result<DataChunk<'lt>, Ef> + Sync,
         S: Fn(&[u8]) -> Result<Hkey, Es> + Sync,
     {
+        if range.end == range.start {
+            return Ok(Arc::from(Self::default()));
+        }
+
         let resolver = |hash: &Hash| {
             let chunk = fetch(hash)?;
 
