@@ -514,7 +514,7 @@ impl Hkey {
         }
     }
 
-    pub fn shrink<'lt, E, F>(&self, store: &F) -> TResult<String, E>
+    pub fn shrink_or_not<'lt, E, F>(&self, store: &F) -> TResult<Option<Hkey>, E>
     where
         E: From<PsHkeyError> + Send,
         F: Fn(&[u8]) -> TResult<Hkey, E> + Sync,
@@ -522,35 +522,37 @@ impl Hkey {
         match self {
             Self::Raw(raw) => {
                 if raw.len() < 74 {
-                    self.into()
+                    None
                 } else {
-                    store(raw)?.shrink(store)?
+                    store(raw)?.shrink_into(store)?.some()
                 }
             }
             Self::Base64(base64) => {
                 if base64.len() < 99 {
-                    self.into()
+                    None
                 } else {
-                    store(&ps_base64::decode(base64.as_bytes()))?.shrink(store)?
+                    store(&ps_base64::decode(base64.as_bytes()))?
+                        .shrink_into(store)?
+                        .some()
                 }
             }
             Self::List(list) => {
                 let stored = store(Self::format_list(list).as_bytes())?;
 
                 match stored {
-                    Self::Encrypted(hash, key) => (&Self::ListRef(hash, key)).into(),
+                    Self::Encrypted(hash, key) => Self::ListRef(hash, key).some(),
                     _ => Err(PsHkeyError::StorageError)?,
                 }
             }
-            Self::LongHkeyExpanded(lhkey) => {
-                Hkey::LongHkey(lhkey.store(store)?.into()).shrink(store)?
-            }
-            _ => self.into(),
+            Self::LongHkeyExpanded(lhkey) => Hkey::LongHkey(lhkey.store(store)?.into())
+                .shrink_into(store)?
+                .some(),
+            _ => None,
         }
         .ok()
     }
 
-    pub async fn shrink_async<'lt, E, F>(&self, store: &F) -> TResult<String, E>
+    pub async fn shrink_or_not_async<'lt, E, F>(&self, store: &F) -> TResult<Option<Hkey>, E>
     where
         E: From<PsHkeyError> + Send,
         F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Hkey, E>>>> + Sync,
@@ -558,36 +560,97 @@ impl Hkey {
         match self {
             Self::Raw(raw) => {
                 if raw.len() < 75 {
-                    self.into()
+                    None
                 } else {
-                    store(raw).await?.shrink_async(store).await?
+                    store(raw).await?.shrink_into_async(store).await?.some()
                 }
             }
             Self::Base64(base64) => {
                 if base64.len() < 99 {
-                    self.into()
+                    None
                 } else {
                     store(&ps_base64::decode(base64.as_bytes()))
                         .await?
-                        .shrink_async(store)
+                        .shrink_into_async(store)
                         .await?
+                        .some()
                 }
             }
             Self::List(list) => {
                 let stored = store(Self::format_list(list).as_bytes()).await?;
 
                 match stored {
-                    Self::Encrypted(hash, key) => (&Self::ListRef(hash, key)).into(),
+                    Self::Encrypted(hash, key) => Self::ListRef(hash, key).some(),
                     _ => Err(PsHkeyError::StorageError)?,
                 }
             }
             Self::LongHkeyExpanded(lhkey) => match store(format!("{}", lhkey).as_bytes()).await? {
-                Hkey::Encrypted(hash, key) => (&Hkey::ListRef(hash, key)).into(),
+                Hkey::Encrypted(hash, key) => Hkey::ListRef(hash, key).some(),
                 _ => Err(PsHkeyError::StorageError)?,
             },
-            _ => self.into(),
+            _ => None,
         }
         .ok()
+    }
+
+    pub fn shrink_into<'lt, E, F>(self, store: &F) -> TResult<Hkey, E>
+    where
+        E: From<PsHkeyError> + Send,
+        F: Fn(&[u8]) -> TResult<Hkey, E> + Sync,
+    {
+        match self.shrink_or_not(store)? {
+            Some(hkey) => hkey.ok(),
+            None => self.ok(),
+        }
+    }
+
+    pub async fn shrink_into_async<'lt, E, F>(self, store: &F) -> TResult<Hkey, E>
+    where
+        E: From<PsHkeyError> + Send,
+        F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Hkey, E>>>> + Sync,
+    {
+        match self.shrink_or_not_async(store).await? {
+            Some(hkey) => hkey.ok(),
+            None => self.ok(),
+        }
+    }
+
+    pub fn shrink<'lt, E, F>(&self, store: &F) -> TResult<Hkey, E>
+    where
+        E: From<PsHkeyError> + Send,
+        F: Fn(&[u8]) -> TResult<Hkey, E> + Sync,
+    {
+        match self.shrink_or_not(store)? {
+            Some(hkey) => hkey.ok(),
+            None => self.clone().ok(),
+        }
+    }
+
+    pub async fn shrink_async<'lt, E, F>(&self, store: &F) -> TResult<Hkey, E>
+    where
+        E: From<PsHkeyError> + Send,
+        F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Hkey, E>>>> + Sync,
+    {
+        match self.shrink_or_not_async(store).await? {
+            Some(hkey) => hkey.ok(),
+            None => self.clone().ok(),
+        }
+    }
+
+    pub fn shrink_to_string<'lt, E, F>(&self, store: &F) -> TResult<String, E>
+    where
+        E: From<PsHkeyError> + Send,
+        F: Fn(&[u8]) -> TResult<Hkey, E> + Sync,
+    {
+        self.shrink(store)?.to_string().ok()
+    }
+
+    pub async fn shrink_to_string_async<'lt, E, F>(&self, store: &F) -> TResult<String, E>
+    where
+        E: From<PsHkeyError> + Send,
+        F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Hkey, E>>>> + Sync,
+    {
+        self.shrink_async(store).await?.to_string().ok()
     }
 }
 
