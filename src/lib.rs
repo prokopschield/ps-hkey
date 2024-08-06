@@ -154,6 +154,14 @@ impl Hkey {
         accumulator
     }
 
+    /// Transmutates Encrypted(Hash,Key) into ListRef(Hash,Key), leaves other variants unchanged
+    pub fn encrypted_into_list_ref(self) -> Result<Self> {
+        match self {
+            Hkey::Encrypted(hash, key) => Hkey::ListRef(hash, key).ok(),
+            hkey => PsHkeyError::EncryptedIntoListRefError(hkey).err(),
+        }
+    }
+
     pub fn resolve<'lt, E, F>(&self, resolver: &F) -> TResult<DataChunk<'lt>, E>
     where
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
@@ -539,9 +547,9 @@ impl Hkey {
             Self::List(list) => {
                 let stored = store(Self::format_list(list).as_bytes())?;
 
-                match stored {
-                    Self::Encrypted(hash, key) => Self::ListRef(hash, key).some(),
-                    _ => Err(PsHkeyError::StorageError)?,
+                match stored.encrypted_into_list_ref() {
+                    Ok(hkey) => Some(hkey),
+                    Err(err) => Err(err)?,
                 }
             }
             Self::LongHkeyExpanded(lhkey) => Hkey::LongHkey(lhkey.store(store)?.into())
@@ -579,9 +587,9 @@ impl Hkey {
             Self::List(list) => {
                 let stored = store(Self::format_list(list).as_bytes()).await?;
 
-                match stored {
-                    Self::Encrypted(hash, key) => Self::ListRef(hash, key).some(),
-                    _ => Err(PsHkeyError::StorageError)?,
+                match stored.encrypted_into_list_ref() {
+                    Ok(hkey) => Some(hkey),
+                    Err(err) => Err(err)?,
                 }
             }
             Self::LongHkeyExpanded(lhkey) => match store(format!("{}", lhkey).as_bytes()).await? {

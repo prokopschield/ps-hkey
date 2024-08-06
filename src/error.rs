@@ -16,6 +16,8 @@ pub enum PsHkeyError {
     RangeError(usize),
     #[error("Failed to store with external storage function")]
     StorageError,
+    #[error("While storing a List or LongHkey, expected Hkey::Encrypted, got {0}")]
+    EncryptedIntoListRefError(crate::Hkey),
     #[error(transparent)]
     Utf8Error(#[from] Utf8Error),
     #[error(transparent)]
