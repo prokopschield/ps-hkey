@@ -1,3 +1,5 @@
+pub mod methods;
+
 use std::{fmt::Display, future::Future, pin::Pin, sync::Arc};
 
 use ps_datachunk::{Compressor, DataChunk, OwnedDataChunk, PsDataChunkError};
