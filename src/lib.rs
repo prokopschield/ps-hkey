@@ -1,9 +1,9 @@
-pub mod error;
-pub mod long;
+mod error;
+mod long;
 pub use error::PsHkeyError;
 pub use error::Result;
-use long::LongHkey;
-use long::LongHkeyExpanded;
+pub use long::LongHkey;
+pub use long::LongHkeyExpanded;
 use ps_datachunk::Compressor;
 use ps_datachunk::DataChunk;
 use ps_datachunk::OwnedDataChunk;
