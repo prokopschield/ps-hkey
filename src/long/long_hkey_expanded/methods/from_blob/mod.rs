@@ -9,7 +9,7 @@ use rayon::{
 use crate::{
     long::{
         long_hkey_expanded::{
-            constants::LHKEY_LEVEL_MAX_LENGTH,
+            constants::{LHKEY_LEVEL_MAX_LENGTH, LHKEY_SEGMENT_MAX_LENGTH},
             methods::update::helpers::{calculate_depth, calculate_segment_length},
         },
         LongHkeyExpanded,
@@ -42,7 +42,18 @@ impl LongHkeyExpanded {
                 })
                 .collect()
         } else {
-            todo!()
+            let chunks = data.par_chunks(LHKEY_SEGMENT_MAX_LENGTH);
+
+            chunks
+                .enumerate()
+                .map(|(index, chunk)| {
+                    let start = index * LHKEY_SEGMENT_MAX_LENGTH;
+                    let end = start + chunk.len();
+                    let hkey = store(chunk)?;
+
+                    Ok((start..end, hkey))
+                })
+                .collect()
         };
 
         let parts = Arc::from(parts?.into_boxed_slice());
