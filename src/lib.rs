@@ -561,18 +561,7 @@ impl Hkey {
                     Err(err) => Err(err)?,
                 }
             }
-            Self::LongHkey(lhkey) => {
-                let stored = store(lhkey.to_string().as_bytes())?;
-
-                match stored.encrypted_into_list_ref() {
-                    Ok(hkey) => Some(hkey),
-                    Err(err) => Err(err)?,
-                }
-                // same as Self::List
-            }
-            Self::LongHkeyExpanded(lhkey) => Hkey::LongHkey(lhkey.store(store)?.into())
-                .shrink_into(store)?
-                .some(),
+            Self::LongHkeyExpanded(lhkey) => Hkey::LongHkey(lhkey.store(store)?.into()).some(),
             _ => None,
         }
         .ok()
