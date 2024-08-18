@@ -1,6 +1,6 @@
 pub mod methods;
 
-use std::{fmt::Display, future::Future, pin::Pin, sync::Arc};
+use std::{fmt::Display, future::Future, sync::Arc};
 
 use ps_datachunk::{Compressor, DataChunk, OwnedDataChunk, PsDataChunkError};
 use ps_hash::Hash;
@@ -108,10 +108,11 @@ impl LongHkey {
     }
 
     #[inline(always)]
-    pub async fn expand_async<'lt, E, F>(&self, resolver: &F) -> Result<LongHkeyExpanded, E>
+    pub async fn expand_async<'lt, E, F, Ff>(&self, resolver: &F) -> Result<LongHkeyExpanded, E>
     where
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Pin<Box<dyn Future<Output = Result<DataChunk<'lt>, E>>>> + Sync,
+        F: Fn(&Hash) -> Ff,
+        Ff: Future<Output = Result<DataChunk<'lt>, E>> + Sync,
     {
         let future = resolver(&self.hash);
         let chunk = future.await?;

@@ -5,7 +5,6 @@ pub mod methods;
 use std::{
     fmt::{Display, Write},
     future::Future,
-    pin::Pin,
     sync::Arc,
 };
 
@@ -89,22 +88,24 @@ impl LongHkeyExpanded {
         Ok(combined_result.into())
     }
 
-    pub async fn resolve_async<'lt, E, F>(&self, resolver: &F) -> Result<Arc<[u8]>, E>
+    pub async fn resolve_async<'lt, E, F, Ff>(&self, resolver: &F) -> Result<Arc<[u8]>, E>
     where
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Pin<Box<dyn Future<Output = Result<DataChunk<'lt>, E>>>> + Sync,
+        F: Fn(&Hash) -> Ff,
+        Ff: Future<Output = Result<DataChunk<'lt>, E>> + Sync,
     {
         self.resolve_slice_async(resolver, 0..self.size).await
     }
 
-    pub async fn resolve_slice_async<'lt, E, F>(
+    pub async fn resolve_slice_async<'lt, E, F, Ff>(
         &self,
         resolver: &F,
         range: Range,
     ) -> Result<Arc<[u8]>, E>
     where
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Pin<Box<dyn Future<Output = Result<DataChunk<'lt>, E>>>> + Sync,
+        F: Fn(&Hash) -> Ff,
+        Ff: Future<Output = Result<DataChunk<'lt>, E>> + Sync,
     {
         let futures = self
             .parts
