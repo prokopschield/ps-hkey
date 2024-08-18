@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{long::LongHkeyExpanded, Hkey, PsHkeyError};
 
 impl LongHkeyExpanded {
@@ -8,7 +10,9 @@ impl LongHkeyExpanded {
         Ef: Into<E> + Send,
         F: Fn(&[u8]) -> Result<Hkey, Ef> + Sync,
     {
-        self.store::<E, _>(&|data| Ok(store(data)?))?.shrink(store)
+        Ok(Hkey::LongHkey(Arc::from(
+            self.store::<E, _>(&|data| Ok(store(data)?))?,
+        )))
     }
 }
 
@@ -62,7 +66,7 @@ mod tests {
 
         let hkey = lhkey.shrink::<PsHkeyError, _, _>(&store)?;
 
-        assert_eq!(hkey.to_string(), "LIehjNsiXzQDvDS01GFYL641PgXJvbBSa2FuiFCFPfPtfS~mOpwl0TwnfW5_gKRJNfkY0p3JWppoiRNPsvxF~7KWlUSnsJn0U6asA");
+        assert_eq!(hkey.to_string(), "LlCIB2mY72F5wc2s4LjxCG_T87SjDxgq4y6iRvamoEUHCQCMeHRxeVJgQ2iDJA~7QWJ3ZxLSpIxHE3YggY6E_eEQ~PvXy3tr8mloB");
 
         let data = hkey.resolve_slice(&fetch, 0..10000)?;
 
