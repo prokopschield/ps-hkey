@@ -30,18 +30,6 @@ impl LongHkeyExpanded {
         Self { depth, size, parts }
     }
 
-    pub fn store<'lt, E, F>(&self, store: &F) -> Result<LongHkey, E>
-    where
-        E: From<PsHkeyError> + Send,
-        F: Fn(&[u8]) -> Result<Hkey, E> + Sync,
-    {
-        match store(format!("{}", self).as_bytes())? {
-            Hkey::Encrypted(hash, key) => LongHkey::from_hash_and_key(hash, key),
-            _ => PsHkeyError::StorageError.err()?,
-        }
-        .ok()
-    }
-
     pub fn resolve<'lt, E, F>(&self, resolver: &F) -> Result<Arc<[u8]>, E>
     where
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
