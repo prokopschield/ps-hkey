@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::{long::LongHkeyExpanded, Hkey, PsHkeyError};
 
 impl LongHkeyExpanded {
@@ -10,9 +8,7 @@ impl LongHkeyExpanded {
         Ef: Into<E> + Send,
         F: Fn(&[u8]) -> Result<Hkey, Ef> + Sync,
     {
-        Ok(Hkey::LongHkey(Arc::from(
-            self.store::<E, _>(&|data| Ok(store(data)?))?,
-        )))
+        Ok(self.store::<E, _>(&|data| Ok(store(data)?))?.into())
     }
 }
 
