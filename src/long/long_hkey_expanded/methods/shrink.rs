@@ -8,7 +8,7 @@ impl LongHkeyExpanded {
         Ef: Into<E> + Send,
         F: Fn(&[u8]) -> Result<Hkey, Ef> + Sync,
     {
-        Ok(self.store::<E, _>(&|data| Ok(store(data)?))?.into())
+        Ok(self.store::<E, _, _>(store)?.into())
     }
 }
 

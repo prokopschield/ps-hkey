@@ -110,11 +110,7 @@ impl LongHkeyExpanded {
 
         let iterator = (0..length.div_ceil(segment_length)).into_par_iter();
 
-        let transformer = |lhkey: &LongHkeyExpanded| {
-            Ok::<_, E>(Hkey::LongHkey(Arc::from(
-                lhkey.store(&|bytes| Ok::<Hkey, E>(store(bytes)?))?,
-            )))
-        };
+        let transformer = |lhkey: &LongHkeyExpanded| Ok::<_, E>(lhkey.store(store)?.into());
 
         let parts: Result<Vec<_>, E> = iterator
             .map(|index| {

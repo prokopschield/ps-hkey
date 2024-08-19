@@ -531,10 +531,11 @@ impl Hkey {
         }
     }
 
-    pub fn shrink_or_not<'lt, E, F>(&self, store: &F) -> TResult<Option<Hkey>, E>
+    pub fn shrink_or_not<'lt, E, Ef, F>(&self, store: &F) -> TResult<Option<Hkey>, E>
     where
-        E: From<PsHkeyError> + Send,
-        F: Fn(&[u8]) -> TResult<Hkey, E> + Sync,
+        E: From<Ef> + From<PsHkeyError> + Send,
+        Ef: Into<E> + Send,
+        F: Fn(&[u8]) -> TResult<Hkey, Ef> + Sync,
     {
         match self {
             Self::Raw(raw) => {
@@ -608,10 +609,11 @@ impl Hkey {
         .ok()
     }
 
-    pub fn shrink_into<'lt, E, F>(self, store: &F) -> TResult<Hkey, E>
+    pub fn shrink_into<'lt, E, Ef, F>(self, store: &F) -> TResult<Hkey, E>
     where
-        E: From<PsHkeyError> + Send,
-        F: Fn(&[u8]) -> TResult<Hkey, E> + Sync,
+        E: From<Ef> + From<PsHkeyError> + Send,
+        Ef: Into<E> + Send,
+        F: Fn(&[u8]) -> TResult<Hkey, Ef> + Sync,
     {
         match self.shrink_or_not(store)? {
             Some(hkey) => hkey.ok(),
@@ -630,12 +632,13 @@ impl Hkey {
         }
     }
 
-    pub fn shrink<'lt, E, F>(&self, store: &F) -> TResult<Hkey, E>
+    pub fn shrink<'lt, E, Ef, F>(&self, store: &F) -> TResult<Hkey, E>
     where
-        E: From<PsHkeyError> + Send,
+        E: From<Ef> + From<PsHkeyError> + Send,
+        Ef: Into<E> + Send,
         F: Fn(&[u8]) -> TResult<Hkey, E> + Sync,
     {
-        match self.shrink_or_not(store)? {
+        match self.shrink_or_not::<E, _, _>(store)? {
             Some(hkey) => hkey.ok(),
             None => self.clone().ok(),
         }

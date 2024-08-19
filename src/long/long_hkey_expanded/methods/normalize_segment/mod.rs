@@ -98,9 +98,7 @@ impl LongHkeyExpanded {
                 let begin = range.start + index * segment_length;
                 let end = range.end.min(range.start + (index + 1) * segment_length);
                 let lhkey = self.normalize_segment(fetch, store, depth - 1, begin..end)?;
-                let hkey = Hkey::LongHkey(Arc::from(
-                    lhkey.store(&|bytes| Ok::<Hkey, E>(store(bytes)?))?,
-                ));
+                let hkey = Hkey::LongHkey(Arc::from(lhkey.store::<E, _, _>(store)?));
 
                 Ok::<_, E>((index * segment_length..(index + 1) * segment_length, hkey))
             })
