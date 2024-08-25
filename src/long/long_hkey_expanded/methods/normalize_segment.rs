@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use ps_datachunk::{Compressor, DataChunk, PsDataChunkError};
+use ps_datachunk::{DataChunk, PsDataChunkError};
 use ps_hash::Hash;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
@@ -41,7 +41,7 @@ impl LongHkeyExpanded {
                 match &part.1 {
                     Hkey::LongHkeyExpanded(lhkey) => return Ok(lhkey.clone()),
                     Hkey::LongHkey(lhkey) => {
-                        let lhkey = lhkey.expand(&resolver, &Compressor::new())?;
+                        let lhkey = lhkey.expand(&resolver)?;
 
                         return Ok(Arc::from(lhkey));
                     }

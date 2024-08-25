@@ -177,7 +177,7 @@ impl Hkey {
             Hkey::ListRef(hash, key) => Self::resolve_list_ref(hash, key, resolver)?,
             Hkey::List(list) => Self::resolve_list(list, resolver)?.into(),
             Hkey::LongHkey(lhkey) => {
-                let expanded = lhkey.expand(resolver, &Compressor::new())?;
+                let expanded = lhkey.expand(resolver)?;
                 let data = expanded.resolve(resolver)?;
 
                 DataChunk::from(data)
@@ -301,9 +301,7 @@ impl Hkey {
                 Self::resolve_list_ref_slice(hash, key.as_bytes(), resolver, range)
             }
 
-            Hkey::LongHkey(lhkey) => lhkey
-                .expand(resolver, &Compressor::new())?
-                .resolve_slice(resolver, range),
+            Hkey::LongHkey(lhkey) => lhkey.expand(resolver)?.resolve_slice(resolver, range),
 
             Hkey::LongHkeyExpanded(lhkey) => lhkey.resolve_slice(resolver, range),
 
