@@ -19,7 +19,7 @@ mod tests {
         sync::{Arc, Mutex},
     };
 
-    use ps_datachunk::{BorrowedDataChunk, Compressor, DataChunk, DataChunkTrait};
+    use ps_datachunk::{BorrowedDataChunk, DataChunk, DataChunkTrait};
     use ps_hash::Hash;
 
     use crate::{long::LongHkeyExpanded, Hkey, PsHkeyError};
@@ -41,7 +41,7 @@ mod tests {
 
         let store = |bytes: &[u8]| {
             let chunk = BorrowedDataChunk::from_data(bytes);
-            let encrypted = chunk.encrypt(&Compressor::new())?;
+            let encrypted = chunk.encrypt()?;
             let hkey = Hkey::Encrypted(encrypted.chunk.hash(), encrypted.key);
 
             hashmap().insert(*encrypted.chunk.hash(), DataChunk::Owned(encrypted.chunk));

@@ -1,6 +1,6 @@
 use std::{fmt::Display, future::Future, sync::Arc};
 
-use ps_datachunk::{Compressor, DataChunk, OwnedDataChunk, PsDataChunkError};
+use ps_datachunk::{utils::decrypt, DataChunk, PsDataChunkError};
 use ps_hash::Hash;
 use ps_util::ToResult;
 
@@ -84,8 +84,7 @@ impl LongHkey {
         &self,
         encrypted: &[u8],
     ) -> Result<LongHkeyExpanded, PsHkeyError> {
-        let compressor = Compressor::new();
-        let lhkey_str = OwnedDataChunk::decrypt_bytes(encrypted, self.key.as_bytes(), &compressor)?;
+        let lhkey_str = decrypt(encrypted, self.key.as_bytes())?;
 
         Self::expand_from_lhkey_str(lhkey_str.data_ref())
     }

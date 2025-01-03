@@ -4,10 +4,10 @@ pub use error::PsHkeyError;
 pub use error::Result;
 pub use long::LongHkey;
 pub use long::LongHkeyExpanded;
-use ps_datachunk::Compressor;
 use ps_datachunk::DataChunk;
 use ps_datachunk::OwnedDataChunk;
 use ps_datachunk::PsDataChunkError;
+use ps_datachunk::SerializedDataChunk;
 pub use ps_hash::Hash;
 use ps_util::ToResult;
 use rayon::iter::IntoParallelIterator;
@@ -192,13 +192,13 @@ impl Hkey {
         hash: &Hash,
         key: &Hash,
         resolver: &F,
-    ) -> TResult<OwnedDataChunk, E>
+    ) -> TResult<SerializedDataChunk, E>
     where
         E: From<PsDataChunkError>,
         F: Fn(&Hash) -> TResult<DataChunk<'lt>, E>,
     {
         let encrypted = resolver(hash)?;
-        let decrypted = encrypted.decrypt(key.as_bytes(), &Compressor::new())?;
+        let decrypted = encrypted.decrypt(key.as_bytes())?;
 
         Ok(decrypted)
     }
@@ -283,7 +283,7 @@ impl Hkey {
         F: Fn(&Hash) -> TResult<DataChunk<'lt>, E> + Sync,
     {
         let resolved = resolver(hash)?;
-        let decrypted = resolved.decrypt(key, &Compressor::new())?;
+        let decrypted = resolved.decrypt(key)?;
         let hkey = Hkey::from(decrypted.data_ref());
 
         hkey.resolve_slice(resolver, range)
@@ -364,14 +364,14 @@ impl Hkey {
         hash: &Hash,
         key: &Hash,
         resolver: &F,
-    ) -> TResult<OwnedDataChunk, E>
+    ) -> TResult<SerializedDataChunk, E>
     where
         E: From<PsDataChunkError>,
         F: Fn(&Hash) -> Ff,
         Ff: Future<Output = TResult<DataChunk<'lt>, E>>,
     {
         let encrypted = resolver(hash).await?;
-        let decrypted = encrypted.decrypt(key.as_bytes(), &Compressor::new())?;
+        let decrypted = encrypted.decrypt(key.as_bytes())?;
 
         Ok(decrypted)
     }
@@ -436,7 +436,7 @@ impl Hkey {
         Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Sync,
     {
         let resolved = resolver(hash).await?;
-        let decrypted = resolved.decrypt(key, &Compressor::new())?;
+        let decrypted = resolved.decrypt(key)?;
         let hkey = Hkey::from(decrypted.data_ref());
 
         hkey.resolve_slice_async_box(resolver, range).await
