@@ -7,9 +7,14 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum PsHkeyError {
     #[error(transparent)]
+    ParseIntError(#[from] ParseIntError),
+    #[error(transparent)]
     PsDataChunkError(#[from] PsDataChunkError),
     #[error(transparent)]
     PsHashError(#[from] PsHashError),
+    #[error(transparent)]
+    Utf8Error(#[from] Utf8Error),
+
     #[error("Invalid hkey format")]
     FormatError,
     #[error("Invalid range, entity is of size {0}")]
@@ -20,10 +25,6 @@ pub enum PsHkeyError {
     EncryptedIntoListRefError(crate::Hkey),
     #[error("Reached unreachable code.")]
     UnreachableCodeReached,
-    #[error(transparent)]
-    Utf8Error(#[from] Utf8Error),
-    #[error(transparent)]
-    ParseIntError(#[from] ParseIntError),
 }
 
 pub type Result<T> = std::result::Result<T, PsHkeyError>;
