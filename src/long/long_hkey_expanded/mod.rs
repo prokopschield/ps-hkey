@@ -11,7 +11,6 @@ use std::{
 use futures::future::try_join_all;
 use ps_datachunk::{DataChunk, PsDataChunkError};
 use ps_hash::Hash;
-use ps_util::ToResult;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use crate::{Hkey, PsHkeyError, Range};
@@ -181,7 +180,7 @@ impl Ord for LongHkeyExpanded {
 
 impl PartialOrd for LongHkeyExpanded {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.cmp(other).some()
+        Some(self.cmp(other))
     }
 }
 
