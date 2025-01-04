@@ -1,7 +1,7 @@
 pub mod helpers;
 
 use std::{
-    ops::{Mul, Sub},
+    ops::{Add, Mul, Sub},
     sync::Arc,
 };
 
@@ -23,7 +23,7 @@ impl LongHkeyExpanded {
         fetch: &F,
         store: &S,
         data: &[u8],
-        range: Range,
+        range: &Range,
     ) -> Result<Arc<Self>, E>
     where
         E: From<Ef> + From<Es> + From<PsHkeyError> + From<PsDataChunkError> + Send,
@@ -32,51 +32,84 @@ impl LongHkeyExpanded {
         F: Fn(&Hash) -> Result<DataChunk<'lt>, Ef> + Sync,
         S: Fn(&[u8]) -> Result<Hkey, Es> + Sync,
     {
-        let range = range.start..range.end.min(range.start + data.len());
-        let length = self.size.max(range.end);
+        let fetch = &|hash: &Hash| Ok::<_, E>(fetch(hash)?);
 
-        let iterator = (0..length.div_ceil(LHKEY_SEGMENT_MAX_LENGTH)).into_par_iter();
-        let resolver = |hash: &Hash| Ok::<_, E>(fetch(hash)?);
+        let length = data.len().min(range.end - range.start);
 
-        let parts: Result<Vec<(Range, Hkey)>, E> = iterator
+        let range = range.start..range.start + length;
+        let data = &data[..length];
+
+        let new_size = range.end.max(self.size);
+
+        let parts: Result<Vec<(Range, Hkey)>, E> = (0..new_size.div_ceil(LHKEY_SEGMENT_MAX_LENGTH))
+            .into_par_iter()
             .map(|index| {
-                let start = index.mul(LHKEY_SEGMENT_MAX_LENGTH);
-                let end = (index + 1).mul(LHKEY_SEGMENT_MAX_LENGTH).min(length);
+                let part_start = index.mul(LHKEY_SEGMENT_MAX_LENGTH);
+                let part_end = index.add(1).mul(LHKEY_SEGMENT_MAX_LENGTH).max(new_size);
 
-                match self.parts.get(index) {
-                    Some(part) => {
-                        if part.0.start == start && part.0.end == end {
-                            return part.clone().ok();
+                // part is entirely outside of range
+                if range.end <= part_start || range.start >= part_end {
+                    if let Some(segment) = self.parts.get(index) {
+                        if segment.0.start == part_start && segment.0.end == part_end {
+                            return segment.clone().ok();
                         }
                     }
-                    None => (),
+
+                    let slice = &self.resolve_slice(fetch, part_start..part_end)?[..];
+
+                    return (part_start..part_end, store(slice)?).ok();
                 }
 
-                if range.start <= start && range.end >= end {
-                    // only new bytes
-                    return Ok((start..end, store(&data[start..end])?));
+                // part is intirely within range
+                if part_start >= range.start && part_end <= range.end {
+                    let slice = &data[part_start - range.start..part_end - range.start];
+
+                    return (part_start..part_end, store(slice)?).ok();
                 }
 
-                let bytes = self.resolve_slice(&resolver, start..end.min(self.size))?;
+                // range is entirely within part
+                if range.start >= part_start && range.end <= part_end {
+                    let mut buffer = Vec::with_capacity(part_end - part_start);
 
-                if start >= range.end || end <= range.start {
-                    // only old bytes
-                    return Ok((start..end, store(&bytes)?));
+                    let original = self.resolve_slice(fetch, part_start..part_end)?;
+
+                    let data_start = range.start - part_start;
+                    let data_end = data_start + data.len();
+
+                    let orig_start = data_end.min(original.len());
+
+                    buffer.extend_from_slice(&original[..data_start]);
+                    buffer.extend_from_slice(data);
+                    buffer.extend_from_slice(&original[orig_start..]);
+
+                    return (part_start..part_end, store(&buffer)?).ok();
                 }
 
-                let mut vector = Vec::with_capacity(end - start);
+                // part begins with original data
+                if range.start > part_start {
+                    let mut buffer = Vec::with_capacity(part_end - part_start);
 
-                if start < range.start {
-                    // begin with old bytes
-                    vector.extend_from_slice(&bytes[0..range.start]);
-                    vector.extend_from_slice(&data[range.start..end]);
-                } else {
-                    // end with old bytes
-                    vector.extend_from_slice(&data[end..range.end]);
-                    vector.extend_from_slice(&bytes[range.end..end]);
+                    buffer.extend_from_slice(&self.resolve_slice(fetch, part_start..range.start)?);
+                    buffer.extend_from_slice(&data[..part_end - range.start]);
+
+                    return (part_start..part_end, store(&buffer)?).ok();
                 }
 
-                Ok::<_, E>((start..end, store(&vector)?))
+                // part begins with new data
+                if part_start >= range.start {
+                    let mut buffer = Vec::with_capacity(part_end - part_start);
+
+                    let data_start = part_start - range.start;
+                    let orig_start = data.len() - data_start;
+
+                    buffer.extend_from_slice(&data[data_start..]);
+                    buffer.extend_from_slice(&self.resolve_slice(fetch, orig_start..part_end)?);
+
+                    return (part_start..part_end, store(&buffer)?).ok();
+                }
+
+                // all variants have been exhausted
+                Err(PsHkeyError::UnreachableCodeReached)?
             })
             .collect();
 
@@ -105,7 +138,7 @@ impl LongHkeyExpanded {
         let segment_length = calculate_segment_length(depth);
 
         if depth == 0 {
-            return self.update_flat(fetch, store, data, range);
+            return self.update_flat(fetch, store, data, &range);
         }
 
         let iterator = (0..length.div_ceil(segment_length)).into_par_iter();

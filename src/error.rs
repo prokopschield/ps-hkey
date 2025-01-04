@@ -18,6 +18,8 @@ pub enum PsHkeyError {
     StorageError,
     #[error("While storing a List or LongHkey, expected Hkey::Encrypted, got {0}")]
     EncryptedIntoListRefError(crate::Hkey),
+    #[error("Reached unreachable code.")]
+    UnreachableCodeReached,
     #[error(transparent)]
     Utf8Error(#[from] Utf8Error),
     #[error(transparent)]
