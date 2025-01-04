@@ -3,7 +3,7 @@ use ps_util::ToResult;
 use crate::{Hkey, LongHkey, LongHkeyExpanded, PsHkeyError};
 
 impl LongHkeyExpanded {
-    pub fn store<'lt, E, Ef, F>(&self, store: &F) -> Result<LongHkey, E>
+    pub fn store<E, Ef, F>(&self, store: &F) -> Result<LongHkey, E>
     where
         E: From<Ef> + From<PsHkeyError> + Send,
         Ef: Into<E> + Send,

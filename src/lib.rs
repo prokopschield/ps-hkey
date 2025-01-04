@@ -525,7 +525,7 @@ impl Hkey {
         }
     }
 
-    pub fn shrink_or_not<'lt, E, Ef, F>(&self, store: &F) -> TResult<Option<Hkey>, E>
+    pub fn shrink_or_not<E, Ef, F>(&self, store: &F) -> TResult<Option<Hkey>, E>
     where
         E: From<Ef> + From<PsHkeyError> + Send,
         Ef: Into<E> + Send,
@@ -603,7 +603,7 @@ impl Hkey {
         .ok()
     }
 
-    pub fn shrink_into<'lt, E, Ef, F>(self, store: &F) -> TResult<Hkey, E>
+    pub fn shrink_into<E, Ef, F>(self, store: &F) -> TResult<Hkey, E>
     where
         E: From<Ef> + From<PsHkeyError> + Send,
         Ef: Into<E> + Send,
@@ -626,7 +626,7 @@ impl Hkey {
         }
     }
 
-    pub fn shrink<'lt, E, Ef, F>(&self, store: &F) -> TResult<Hkey, E>
+    pub fn shrink<E, Ef, F>(&self, store: &F) -> TResult<Hkey, E>
     where
         E: From<Ef> + From<PsHkeyError> + Send,
         Ef: Into<E> + Send,
@@ -638,7 +638,7 @@ impl Hkey {
         }
     }
 
-    pub async fn shrink_async<'lt, E, F>(&self, store: &F) -> TResult<Hkey, E>
+    pub async fn shrink_async<E, F>(&self, store: &F) -> TResult<Hkey, E>
     where
         E: From<PsHkeyError> + Send,
         F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Hkey, E>>>> + Sync,
@@ -649,7 +649,7 @@ impl Hkey {
         }
     }
 
-    pub fn shrink_to_string<'lt, E, F>(&self, store: &F) -> TResult<String, E>
+    pub fn shrink_to_string<E, F>(&self, store: &F) -> TResult<String, E>
     where
         E: From<PsHkeyError> + Send,
         F: Fn(&[u8]) -> TResult<Hkey, E> + Sync,

@@ -18,7 +18,7 @@ use crate::{
 };
 
 impl LongHkeyExpanded {
-    pub fn from_blob<'lt, E, Es, S>(store: &S, data: &[u8]) -> Result<Self, E>
+    pub fn from_blob<E, Es, S>(store: &S, data: &[u8]) -> Result<Self, E>
     where
         E: From<Es> + From<PsHkeyError> + From<PsDataChunkError> + Send,
         Es: Into<E> + Send,
