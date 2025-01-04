@@ -27,7 +27,7 @@ mod tests {
 
     #[test]
     fn border_values() {
-        let max_depth = usize::max_value().ilog2() / 4 - 3;
+        let max_depth = usize::MAX.ilog2() / 4 - 3;
 
         for depth in 0..max_depth {
             let cutoff = LHKEY_LEVEL_MAX_LENGTH << (depth * LHKEY_PART_COUNT_LOG2);
