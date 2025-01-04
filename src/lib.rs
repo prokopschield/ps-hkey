@@ -51,12 +51,8 @@ impl Hkey {
         }
     }
 
-    pub fn try_parse_direct(hash: &[u8]) -> Result<Arc<Hash>> {
-        Ok(Hash::try_from(hash)?.into())
-    }
-
     pub fn try_as_direct(hash: &[u8]) -> Result<Self> {
-        let hash = Self::try_parse_direct(hash)?;
+        let hash = Hash::try_from(hash)?.into();
         let hkey = Self::Direct(hash);
 
         Ok(hkey)
