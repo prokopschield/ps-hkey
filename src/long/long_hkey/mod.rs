@@ -1,6 +1,6 @@
 use std::{fmt::Display, future::Future, sync::Arc};
 
-use ps_datachunk::{utils::decrypt, DataChunk, PsDataChunkError};
+use ps_datachunk::{utils::decrypt, DataChunk};
 use ps_hash::Hash;
 use ps_util::ToResult;
 
@@ -92,7 +92,7 @@ impl LongHkey {
     #[inline(always)]
     pub fn expand<'lt, E, F>(&self, resolver: &F) -> Result<LongHkeyExpanded, E>
     where
-        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
+        E: From<PsHkeyError> + Send,
         F: Fn(&Hash) -> Result<DataChunk<'lt>, E> + Sync,
     {
         let encrypted = resolver(&self.hash)?;
@@ -103,7 +103,7 @@ impl LongHkey {
     #[inline(always)]
     pub async fn expand_async<'lt, E, F, Ff>(&self, resolver: &F) -> Result<LongHkeyExpanded, E>
     where
-        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
+        E: From<PsHkeyError> + Send,
         F: Fn(&Hash) -> Ff,
         Ff: Future<Output = Result<DataChunk<'lt>, E>> + Sync,
     {

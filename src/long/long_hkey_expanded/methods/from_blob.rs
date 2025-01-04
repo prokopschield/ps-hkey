@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use ps_datachunk::PsDataChunkError;
 use rayon::{
     iter::{IndexedParallelIterator, ParallelIterator},
     slice::ParallelSlice,
@@ -20,7 +19,7 @@ use crate::{
 impl LongHkeyExpanded {
     pub fn from_blob<E, Es, S>(store: &S, data: &[u8]) -> Result<Self, E>
     where
-        E: From<Es> + From<PsHkeyError> + From<PsDataChunkError> + Send,
+        E: From<Es> + From<PsHkeyError> + Send,
         Es: Into<E> + Send,
         S: Fn(&[u8]) -> Result<Hkey, Es> + Sync,
     {
