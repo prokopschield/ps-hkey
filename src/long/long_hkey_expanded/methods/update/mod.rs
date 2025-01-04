@@ -45,7 +45,7 @@ impl LongHkeyExpanded {
             .into_par_iter()
             .map(|index| {
                 let part_start = index.mul(LHKEY_SEGMENT_MAX_LENGTH);
-                let part_end = index.add(1).mul(LHKEY_SEGMENT_MAX_LENGTH).max(new_size);
+                let part_end = index.add(1).mul(LHKEY_SEGMENT_MAX_LENGTH).min(new_size);
 
                 // part is entirely outside of range
                 if range.end <= part_start || range.start >= part_end {
