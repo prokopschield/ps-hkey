@@ -1,8 +1,13 @@
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::module_name_repetitions)]
+mod constants;
 mod error;
 mod long;
 mod resolved;
+use constants::DOUBLE_HASH_SIZE;
+use constants::HASH_SIZE;
+use constants::MAX_SIZE_BASE64;
+use constants::MAX_SIZE_RAW;
 pub use error::PsHkeyError;
 pub use error::Result;
 pub use long::LongHkey;
@@ -63,7 +68,7 @@ impl Hkey {
     }
 
     pub fn try_parse_encrypted(hashkey: &[u8]) -> Result<(Arc<Hash>, Arc<Hash>)> {
-        let (hash, key) = hashkey.split_at(50);
+        let (hash, key) = hashkey.split_at(HASH_SIZE);
         let hash = Hash::try_from(hash)?;
         let key = Hash::try_from(key)?;
 
@@ -123,8 +128,8 @@ impl Hkey {
 
     pub fn try_as(value: &[u8]) -> Result<Self> {
         match value.len() {
-            50 => Self::try_as_direct(value),
-            100 => Self::try_as_encrypted(value),
+            HASH_SIZE => Self::try_as_direct(value),
+            DOUBLE_HASH_SIZE => Self::try_as_encrypted(value),
             _ => Self::try_as_prefixed(value),
         }
     }
@@ -551,14 +556,14 @@ impl Hkey {
     {
         match self {
             Self::Raw(raw) => {
-                if raw.len() < 74 {
+                if raw.len() <= MAX_SIZE_RAW {
                     None
                 } else {
                     store(raw)?.shrink_into(store)?.some()
                 }
             }
             Self::Base64(base64) => {
-                if base64.len() < 99 {
+                if base64.len() <= MAX_SIZE_BASE64 {
                     None
                 } else {
                     store(&ps_base64::decode(base64.as_bytes()))?
@@ -587,14 +592,14 @@ impl Hkey {
     {
         match self {
             Self::Raw(raw) => {
-                if raw.len() < 75 {
+                if raw.len() <= MAX_SIZE_RAW {
                     None
                 } else {
                     store(raw).await?.shrink_into_async(store).await?.some()
                 }
             }
             Self::Base64(base64) => {
-                if base64.len() < 99 {
+                if base64.len() <= MAX_SIZE_BASE64 {
                     None
                 } else {
                     store(&ps_base64::decode(base64.as_bytes()))
