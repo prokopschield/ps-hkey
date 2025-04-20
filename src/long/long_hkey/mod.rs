@@ -85,7 +85,7 @@ impl LongHkey {
         LongHkeyExpanded::new(depth, size, parts).ok()
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn expand_from_lhkey_encrypted_str(
         &self,
         encrypted: &[u8],
@@ -95,7 +95,7 @@ impl LongHkey {
         Self::expand_from_lhkey_str(lhkey_str.data_ref())
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn expand<'lt, E, F>(&self, resolver: &F) -> Result<LongHkeyExpanded, E>
     where
         E: From<PsHkeyError> + Send,
@@ -106,7 +106,7 @@ impl LongHkey {
         Self::expand_from_lhkey_encrypted_str(self, encrypted.data_ref())?.ok()
     }
 
-    #[inline(always)]
+    #[inline]
     pub async fn expand_async<'lt, E, F, Ff>(&self, resolver: &F) -> Result<LongHkeyExpanded, E>
     where
         E: From<PsHkeyError> + Send,

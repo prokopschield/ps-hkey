@@ -2,7 +2,7 @@ use crate::long::long_hkey_expanded::constants::{
     LHKEY_PART_COUNT_LOG2, LHKEY_SEGMENT_MAX_LENGTH_LOG2,
 };
 
-#[inline(always)]
+#[inline]
 pub const fn calculate_segment_length_log2(depth: u32) -> u32 {
     let log2 = LHKEY_SEGMENT_MAX_LENGTH_LOG2 + depth * LHKEY_PART_COUNT_LOG2;
 
@@ -13,7 +13,7 @@ pub const fn calculate_segment_length_log2(depth: u32) -> u32 {
     }
 }
 
-#[inline(always)]
+#[inline]
 pub const fn calculate_segment_length(depth: u32) -> usize {
     1 << calculate_segment_length_log2(depth)
 }
