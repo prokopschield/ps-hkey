@@ -25,7 +25,8 @@ pub struct LongHkeyExpanded {
 }
 
 impl LongHkeyExpanded {
-    pub fn new(depth: u32, size: usize, parts: Arc<[(Range, Hkey)]>) -> Self {
+    #[must_use]
+    pub const fn new(depth: u32, size: usize, parts: Arc<[(Range, Hkey)]>) -> Self {
         Self { depth, size, parts }
     }
 
@@ -68,7 +69,7 @@ impl LongHkeyExpanded {
         let mut combined_result = Vec::with_capacity(range.end - range.start);
 
         for part in parts {
-            combined_result.extend_from_slice(&part)
+            combined_result.extend_from_slice(&part);
         }
 
         // Convert the result vector into an Arc<[u8]>
@@ -123,7 +124,7 @@ impl LongHkeyExpanded {
         let mut combined_result = Vec::with_capacity(range.end - range.start);
 
         for part in parts {
-            combined_result.extend_from_slice(&part)
+            combined_result.extend_from_slice(&part);
         }
 
         // Convert the result vector into an Arc<[u8]>
@@ -186,36 +187,36 @@ impl PartialOrd for LongHkeyExpanded {
 
 impl From<LongHkey> for Hkey {
     fn from(lhkey: LongHkey) -> Self {
-        Hkey::LongHkey(Arc::from(lhkey))
+        Self::LongHkey(Arc::from(lhkey))
     }
 }
 
 impl From<Arc<LongHkey>> for Hkey {
     fn from(lhkey: Arc<LongHkey>) -> Self {
-        Hkey::LongHkey(lhkey)
+        Self::LongHkey(lhkey)
     }
 }
 
 impl From<&Arc<LongHkey>> for Hkey {
     fn from(lhkey: &Arc<LongHkey>) -> Self {
-        Hkey::LongHkey(lhkey.clone())
+        Self::LongHkey(lhkey.clone())
     }
 }
 
 impl From<LongHkeyExpanded> for Hkey {
     fn from(lhkey: LongHkeyExpanded) -> Self {
-        Hkey::LongHkeyExpanded(Arc::from(lhkey))
+        Self::LongHkeyExpanded(Arc::from(lhkey))
     }
 }
 
 impl From<Arc<LongHkeyExpanded>> for Hkey {
     fn from(lhkey: Arc<LongHkeyExpanded>) -> Self {
-        Hkey::LongHkeyExpanded(lhkey)
+        Self::LongHkeyExpanded(lhkey)
     }
 }
 
 impl From<&Arc<LongHkeyExpanded>> for Hkey {
     fn from(lhkey: &Arc<LongHkeyExpanded>) -> Self {
-        Hkey::LongHkeyExpanded(lhkey.clone())
+        Self::LongHkeyExpanded(lhkey.clone())
     }
 }

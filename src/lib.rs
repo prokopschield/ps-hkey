@@ -1,3 +1,4 @@
+#![allow(clippy::missing_errors_doc)]
 mod error;
 mod long;
 pub use error::PsHkeyError;
@@ -23,27 +24,29 @@ pub type Range = std::ops::Range<usize>;
 pub enum Hkey {
     /// The data contained in this variant is the value referenced
     Raw(Arc<[u8]>),
-    /// The data contained in this variant can be decoded via ps_base64::decode()
+    /// The data contained in this variant can be decoded via [`ps_base64::decode()`]
     Base64(Arc<str>),
-    /// The data shall be read directly from the DataStore
+    /// The data shall be read directly from the [`DataStore`]
     Direct(Arc<Hash>),
-    /// **HashKey**: The data shall be read via `.0` and decrypted via `.1`
+    /// **`HashKey`**: The data shall be read via `.0` and decrypted via `.1`
     Encrypted(Arc<Hash>, Arc<Hash>),
     /// A reference to an Encrypted list
     ListRef(Arc<Hash>, Arc<Hash>),
     /// A list to be concatinated
     List(Arc<[Hkey]>),
-    /// LongHkey representing a very large buffer
+    /// [`LongHkey`] representing a very large buffer
     LongHkey(Arc<LongHkey>),
-    /// an expanded LongHkey
+    /// an expanded [`LongHkey`]
     LongHkeyExpanded(Arc<LongHkeyExpanded>),
 }
 
 impl Hkey {
+    #[must_use]
     pub fn from_raw(value: &[u8]) -> Self {
         Self::Raw(value.into())
     }
 
+    #[must_use]
     pub fn from_base64_slice(value: &[u8]) -> Self {
         match std::str::from_utf8(value) {
             Ok(str) => Self::Base64(str.into()),
@@ -87,13 +90,13 @@ impl Hkey {
         let content = &list[1..last_index];
 
         if first != b'[' || last != b']' {
-            Err(PsHkeyError::FormatError)?
+            Err(PsHkeyError::FormatError)?;
         }
 
         let parts = content.split(|c| *c == b',');
         let items = parts.map(Self::parse);
-        let items: Vec<Hkey> = items.collect();
-        let items: Arc<[Hkey]> = Arc::from(items.into_boxed_slice());
+        let items: Vec<Self> = items.collect();
+        let items: Arc<[Self]> = Arc::from(items.into_boxed_slice());
         let list = Self::List(items);
 
         Ok(list)
@@ -125,6 +128,7 @@ impl Hkey {
         }
     }
 
+    #[must_use]
     pub fn parse(value: &[u8]) -> Self {
         match Self::try_as(value) {
             Ok(hkey) => hkey,
@@ -132,13 +136,14 @@ impl Hkey {
         }
     }
 
-    pub fn format_list(list: &[Hkey]) -> String {
+    #[must_use]
+    pub fn format_list(list: &[Self]) -> String {
         let first = match list.first() {
             Some(first) => first,
             None => return "[]".to_string(),
         };
 
-        let mut accumulator = format!("[{}", first);
+        let mut accumulator = format!("[{first}");
 
         list[1..].iter().for_each(|hkey| {
             accumulator.push(',');
@@ -153,7 +158,7 @@ impl Hkey {
     /// Transmutates Encrypted(Hash,Key) into ListRef(Hash,Key), leaves other variants unchanged
     pub fn encrypted_into_list_ref(self) -> Result<Self> {
         match self {
-            Hkey::Encrypted(hash, key) => Hkey::ListRef(hash, key).ok(),
+            Self::Encrypted(hash, key) => Self::ListRef(hash, key).ok(),
             hkey => PsHkeyError::EncryptedIntoListRefError(hkey).err(),
         }
     }
@@ -164,21 +169,21 @@ impl Hkey {
         F: Fn(&Hash) -> TResult<DataChunk<'lt>, E> + Sync,
     {
         let chunk = match self {
-            Hkey::Raw(raw) => OwnedDataChunk::from_data_ref(raw).into(),
-            Hkey::Base64(base64) => {
+            Self::Raw(raw) => OwnedDataChunk::from_data_ref(raw).into(),
+            Self::Base64(base64) => {
                 OwnedDataChunk::from_data(ps_base64::decode(base64.as_bytes())).into()
             }
-            Hkey::Direct(hash) => resolver(hash)?,
-            Hkey::Encrypted(hash, key) => Self::resolve_encrypted(hash, key, resolver)?.into(),
-            Hkey::ListRef(hash, key) => Self::resolve_list_ref(hash, key, resolver)?,
-            Hkey::List(list) => Self::resolve_list(list, resolver)?.into(),
-            Hkey::LongHkey(lhkey) => {
+            Self::Direct(hash) => resolver(hash)?,
+            Self::Encrypted(hash, key) => Self::resolve_encrypted(hash, key, resolver)?.into(),
+            Self::ListRef(hash, key) => Self::resolve_list_ref(hash, key, resolver)?,
+            Self::List(list) => Self::resolve_list(list, resolver)?.into(),
+            Self::LongHkey(lhkey) => {
                 let expanded = lhkey.expand(resolver)?;
                 let data = expanded.resolve(resolver)?;
 
                 DataChunk::from(data)
             }
-            Hkey::LongHkeyExpanded(lhkey) => lhkey.resolve(resolver)?.into(),
+            Self::LongHkeyExpanded(lhkey) => lhkey.resolve(resolver)?.into(),
         };
 
         Ok(chunk)
@@ -210,10 +215,10 @@ impl Hkey {
     {
         let list_bytes = Self::resolve_encrypted(hash, key, resolver)?;
 
-        Hkey::from(list_bytes.data_ref()).resolve(resolver)
+        Self::from(list_bytes.data_ref()).resolve(resolver)
     }
 
-    pub fn resolve_list<'lt, E, F>(list: &[Hkey], resolver: &F) -> TResult<OwnedDataChunk, E>
+    pub fn resolve_list<'lt, E, F>(list: &[Self], resolver: &F) -> TResult<OwnedDataChunk, E>
     where
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         F: Fn(&Hash) -> TResult<DataChunk<'lt>, E> + Sync,
@@ -222,7 +227,7 @@ impl Hkey {
         let hkey_iter = list.into_par_iter();
 
         // Closure to resolve each Hkey
-        let closure = |hkey: &Hkey| hkey.resolve(resolver);
+        let closure = |hkey: &Self| hkey.resolve(resolver);
 
         // Apply the closure to each item in the iterator
         let results: TResult<Vec<DataChunk>, E> = hkey_iter.map(closure).collect();
@@ -230,14 +235,14 @@ impl Hkey {
         let mut data = Vec::new();
 
         for result in results? {
-            data.extend_from_slice(result.data_ref())
+            data.extend_from_slice(result.data_ref());
         }
 
         Ok(OwnedDataChunk::from_data(data))
     }
 
     pub fn resolve_list_slice<'lt, E, F>(
-        list: &[Hkey],
+        list: &[Self],
         resolver: &F,
         range: Range,
     ) -> TResult<Arc<[u8]>, E>
@@ -280,7 +285,7 @@ impl Hkey {
     {
         let resolved = resolver(hash)?;
         let decrypted = resolved.decrypt(key)?;
-        let hkey = Hkey::from(decrypted.data_ref());
+        let hkey = Self::from(decrypted.data_ref());
 
         hkey.resolve_slice(resolver, range)
     }
@@ -291,15 +296,15 @@ impl Hkey {
         F: Fn(&Hash) -> TResult<DataChunk<'lt>, E> + Sync,
     {
         match self {
-            Hkey::List(list) => Self::resolve_list_slice(list, resolver, range),
+            Self::List(list) => Self::resolve_list_slice(list, resolver, range),
 
-            Hkey::ListRef(hash, key) => {
+            Self::ListRef(hash, key) => {
                 Self::resolve_list_ref_slice(hash, key.as_bytes(), resolver, range)
             }
 
-            Hkey::LongHkey(lhkey) => lhkey.expand(resolver)?.resolve_slice(resolver, range),
+            Self::LongHkey(lhkey) => lhkey.expand(resolver)?.resolve_slice(resolver, range),
 
-            Hkey::LongHkeyExpanded(lhkey) => lhkey.resolve_slice(resolver, range),
+            Self::LongHkeyExpanded(lhkey) => lhkey.resolve_slice(resolver, range),
 
             _ => {
                 let chunk = self.resolve(resolver)?;
@@ -334,23 +339,23 @@ impl Hkey {
         Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Sync,
     {
         let chunk = match self {
-            Hkey::Raw(raw) => OwnedDataChunk::from_data_ref(raw).into(),
-            Hkey::Base64(base64) => {
+            Self::Raw(raw) => OwnedDataChunk::from_data_ref(raw).into(),
+            Self::Base64(base64) => {
                 OwnedDataChunk::from_data(ps_base64::decode(base64.as_bytes())).into()
             }
-            Hkey::Direct(hash) => resolver(hash).await?,
-            Hkey::Encrypted(hash, key) => Self::resolve_encrypted_async(hash, key, resolver)
+            Self::Direct(hash) => resolver(hash).await?,
+            Self::Encrypted(hash, key) => Self::resolve_encrypted_async(hash, key, resolver)
                 .await?
                 .into(),
-            Hkey::ListRef(hash, key) => Self::resolve_list_ref_async(hash, key, resolver).await?,
-            Hkey::List(list) => Self::resolve_list_async(list, resolver).await?.into(),
-            Hkey::LongHkey(lhkey) => lhkey
+            Self::ListRef(hash, key) => Self::resolve_list_ref_async(hash, key, resolver).await?,
+            Self::List(list) => Self::resolve_list_async(list, resolver).await?.into(),
+            Self::LongHkey(lhkey) => lhkey
                 .expand_async(resolver)
                 .await?
                 .resolve_async(resolver)
                 .await?
                 .into(),
-            Hkey::LongHkeyExpanded(lhkey) => lhkey.resolve_async(resolver).await?.into(),
+            Self::LongHkeyExpanded(lhkey) => lhkey.resolve_async(resolver).await?.into(),
         };
 
         Ok(chunk)
@@ -384,13 +389,13 @@ impl Hkey {
     {
         let list_bytes = Self::resolve_encrypted_async(hash, key, resolver).await?;
 
-        Hkey::from(list_bytes.data_ref())
+        Self::from(list_bytes.data_ref())
             .resolve_async_box(resolver)
             .await
     }
 
     pub async fn resolve_list_async<'k, 'lt, E, F, Ff>(
-        list: &'k [Hkey],
+        list: &'k [Self],
         resolver: &F,
     ) -> TResult<OwnedDataChunk, E>
     where
@@ -402,7 +407,7 @@ impl Hkey {
         let hkey_iter = list.iter();
 
         // Closure to resolve each Hkey
-        let closure = |hkey: &'k Hkey| hkey.resolve_async_box(resolver);
+        let closure = |hkey: &'k Self| hkey.resolve_async_box(resolver);
 
         // Apply the closure to each item in the iterator
         let futures = hkey_iter.map(closure).collect();
@@ -414,7 +419,7 @@ impl Hkey {
         let mut data = Vec::new();
 
         for result in joined {
-            data.extend_from_slice(result?.data_ref())
+            data.extend_from_slice(result?.data_ref());
         }
 
         Ok(OwnedDataChunk::from_data(data))
@@ -433,13 +438,13 @@ impl Hkey {
     {
         let resolved = resolver(hash).await?;
         let decrypted = resolved.decrypt(key)?;
-        let hkey = Hkey::from(decrypted.data_ref());
+        let hkey = Self::from(decrypted.data_ref());
 
         hkey.resolve_slice_async_box(resolver, range).await
     }
 
     pub async fn resolve_list_slice_async<'k, 'lt, E, F, Ff>(
-        list: &'k [Hkey],
+        list: &'k [Self],
         resolver: &F,
         range: Range,
     ) -> TResult<Arc<[u8]>, E>
@@ -496,13 +501,13 @@ impl Hkey {
         Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Sync,
     {
         match self {
-            Hkey::List(list) => Self::resolve_list_slice_async(list, resolver, range).await,
+            Self::List(list) => Self::resolve_list_slice_async(list, resolver, range).await,
 
-            Hkey::ListRef(hash, key) => {
+            Self::ListRef(hash, key) => {
                 Self::resolve_list_ref_slice_async(hash, key.as_bytes(), resolver, range).await
             }
 
-            Hkey::LongHkey(lhkey) => {
+            Self::LongHkey(lhkey) => {
                 lhkey
                     .expand_async(resolver)
                     .await?
@@ -510,7 +515,7 @@ impl Hkey {
                     .await
             }
 
-            Hkey::LongHkeyExpanded(lhkey) => lhkey.resolve_slice_async(resolver, range).await,
+            Self::LongHkeyExpanded(lhkey) => lhkey.resolve_slice_async(resolver, range).await,
 
             _ => {
                 let chunk = self.resolve_async(resolver).await?;
@@ -525,11 +530,11 @@ impl Hkey {
         }
     }
 
-    pub fn shrink_or_not<E, Ef, F>(&self, store: &F) -> TResult<Option<Hkey>, E>
+    pub fn shrink_or_not<E, Ef, F>(&self, store: &F) -> TResult<Option<Self>, E>
     where
         E: From<Ef> + From<PsHkeyError> + Send,
         Ef: Into<E> + Send,
-        F: Fn(&[u8]) -> TResult<Hkey, Ef> + Sync,
+        F: Fn(&[u8]) -> TResult<Self, Ef> + Sync,
     {
         match self {
             Self::Raw(raw) => {
@@ -556,16 +561,16 @@ impl Hkey {
                     Err(err) => Err(err)?,
                 }
             }
-            Self::LongHkeyExpanded(lhkey) => Hkey::LongHkey(lhkey.store(store)?.into()).some(),
+            Self::LongHkeyExpanded(lhkey) => Self::LongHkey(lhkey.store(store)?.into()).some(),
             _ => None,
         }
         .ok()
     }
 
-    pub async fn shrink_or_not_async<'lt, E, F>(&self, store: &F) -> TResult<Option<Hkey>, E>
+    pub async fn shrink_or_not_async<'lt, E, F>(&self, store: &F) -> TResult<Option<Self>, E>
     where
         E: From<PsHkeyError> + Send,
-        F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Hkey, E>>>> + Sync,
+        F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Self, E>>>> + Sync,
     {
         match self {
             Self::Raw(raw) => {
@@ -594,8 +599,8 @@ impl Hkey {
                     Err(err) => Err(err)?,
                 }
             }
-            Self::LongHkeyExpanded(lhkey) => match store(format!("{}", lhkey).as_bytes()).await? {
-                Hkey::Encrypted(hash, key) => Hkey::ListRef(hash, key).some(),
+            Self::LongHkeyExpanded(lhkey) => match store(format!("{lhkey}").as_bytes()).await? {
+                Self::Encrypted(hash, key) => Self::ListRef(hash, key).some(),
                 _ => Err(PsHkeyError::StorageError)?,
             },
             _ => None,
@@ -603,11 +608,11 @@ impl Hkey {
         .ok()
     }
 
-    pub fn shrink_into<E, Ef, F>(self, store: &F) -> TResult<Hkey, E>
+    pub fn shrink_into<E, Ef, F>(self, store: &F) -> TResult<Self, E>
     where
         E: From<Ef> + From<PsHkeyError> + Send,
         Ef: Into<E> + Send,
-        F: Fn(&[u8]) -> TResult<Hkey, Ef> + Sync,
+        F: Fn(&[u8]) -> TResult<Self, Ef> + Sync,
     {
         match self.shrink_or_not(store)? {
             Some(hkey) => hkey.ok(),
@@ -615,10 +620,10 @@ impl Hkey {
         }
     }
 
-    pub async fn shrink_into_async<'lt, E, F>(self, store: &F) -> TResult<Hkey, E>
+    pub async fn shrink_into_async<'lt, E, F>(self, store: &F) -> TResult<Self, E>
     where
         E: From<PsHkeyError> + Send,
-        F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Hkey, E>>>> + Sync,
+        F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Self, E>>>> + Sync,
     {
         match self.shrink_or_not_async(store).await? {
             Some(hkey) => hkey.ok(),
@@ -626,11 +631,11 @@ impl Hkey {
         }
     }
 
-    pub fn shrink<E, Ef, F>(&self, store: &F) -> TResult<Hkey, E>
+    pub fn shrink<E, Ef, F>(&self, store: &F) -> TResult<Self, E>
     where
         E: From<Ef> + From<PsHkeyError> + Send,
         Ef: Into<E> + Send,
-        F: Fn(&[u8]) -> TResult<Hkey, E> + Sync,
+        F: Fn(&[u8]) -> TResult<Self, E> + Sync,
     {
         match self.shrink_or_not::<E, _, _>(store)? {
             Some(hkey) => hkey.ok(),
@@ -638,10 +643,10 @@ impl Hkey {
         }
     }
 
-    pub async fn shrink_async<E, F>(&self, store: &F) -> TResult<Hkey, E>
+    pub async fn shrink_async<E, F>(&self, store: &F) -> TResult<Self, E>
     where
         E: From<PsHkeyError> + Send,
-        F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Hkey, E>>>> + Sync,
+        F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Self, E>>>> + Sync,
     {
         match self.shrink_or_not_async(store).await? {
             Some(hkey) => hkey.ok(),
@@ -652,7 +657,7 @@ impl Hkey {
     pub fn shrink_to_string<E, F>(&self, store: &F) -> TResult<String, E>
     where
         E: From<PsHkeyError> + Send,
-        F: Fn(&[u8]) -> TResult<Hkey, E> + Sync,
+        F: Fn(&[u8]) -> TResult<Self, E> + Sync,
     {
         self.shrink(store)?.to_string().ok()
     }
@@ -660,7 +665,7 @@ impl Hkey {
     pub async fn shrink_to_string_async<'lt, E, F>(&self, store: &F) -> TResult<String, E>
     where
         E: From<PsHkeyError> + Send,
-        F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Hkey, E>>>> + Sync,
+        F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Self, E>>>> + Sync,
     {
         self.shrink_async(store).await?.to_string().ok()
     }
@@ -670,13 +675,13 @@ impl From<&Hkey> for String {
     fn from(value: &Hkey) -> Self {
         match value {
             Hkey::Raw(raw) => format!("B{}", ps_base64::encode(raw)),
-            Hkey::Base64(base64) => format!("B{}", base64),
+            Hkey::Base64(base64) => format!("B{base64}"),
             Hkey::Direct(hash) => hash.to_string(),
-            Hkey::Encrypted(hash, key) => format!("E{}{}", hash, key),
-            Hkey::ListRef(hash, key) => format!("L{}{}", hash, key),
+            Hkey::Encrypted(hash, key) => format!("E{hash}{key}"),
+            Hkey::ListRef(hash, key) => format!("L{hash}{key}"),
             Hkey::List(list) => Hkey::format_list(list),
-            Hkey::LongHkey(lhkey) => format!("{}", lhkey),
-            Hkey::LongHkeyExpanded(lhkey) => format!("{}", lhkey),
+            Hkey::LongHkey(lhkey) => format!("{lhkey}"),
+            Hkey::LongHkeyExpanded(lhkey) => format!("{lhkey}"),
         }
     }
 }

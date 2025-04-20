@@ -33,15 +33,14 @@ mod tests {
             let cutoff = LHKEY_LEVEL_MAX_LENGTH << (depth * LHKEY_PART_COUNT_LOG2);
 
             for test in (cutoff - 8)..cutoff {
-                assert_eq!(calculate_depth(0, test), depth, "failed under={:x}", test);
+                assert_eq!(calculate_depth(0, test), depth, "failed under={test:x}");
             }
 
             for test in (cutoff + 1)..(cutoff + 8) {
                 assert_eq!(
                     calculate_depth(0, test),
                     depth + 1,
-                    "failed over={:x}",
-                    test
+                    "failed over={test:x}"
                 );
             }
         }
@@ -54,23 +53,23 @@ mod tests {
         assert_eq!(calculate_depth(0, 0x100), 0);
         assert_eq!(calculate_depth(0, 0x1000), 0);
         assert_eq!(calculate_depth(0, 0x10000), 0);
-        assert_eq!(calculate_depth(0, 0x100000), 1);
-        assert_eq!(calculate_depth(0, 0x1000000), 2);
-        assert_eq!(calculate_depth(0, 0x10000000), 3);
-        assert_eq!(calculate_depth(0, 0xFFFFFFFF), 4);
+        assert_eq!(calculate_depth(0, 0x0010_0000), 1);
+        assert_eq!(calculate_depth(0, 0x0100_0000), 2);
+        assert_eq!(calculate_depth(0, 0x1000_0000), 3);
+        assert_eq!(calculate_depth(0, 0xFFFF_FFFF), 4);
 
         // disable on 32-bit platforms
         #[cfg(target_pointer_width = "64")]
         {
-            assert_eq!(calculate_depth(0, 0x100000000), 4);
-            assert_eq!(calculate_depth(0, 0x1000000000), 5);
-            assert_eq!(calculate_depth(0, 0x10000000000), 6);
-            assert_eq!(calculate_depth(0, 0x100000000000), 7);
-            assert_eq!(calculate_depth(0, 0x1000000000000), 8);
-            assert_eq!(calculate_depth(0, 0x10000000000000), 9);
-            assert_eq!(calculate_depth(0, 0x100000000000000), 10);
-            assert_eq!(calculate_depth(0, 0x1000000000000000), 11);
-            assert_eq!(calculate_depth(0, 0xFFFFFFFFFFFFFFFF), 12);
+            assert_eq!(calculate_depth(0, 0x0001_0000_0000), 4);
+            assert_eq!(calculate_depth(0, 0x0010_0000_0000), 5);
+            assert_eq!(calculate_depth(0, 0x0100_0000_0000), 6);
+            assert_eq!(calculate_depth(0, 0x1000_0000_0000), 7);
+            assert_eq!(calculate_depth(0, 0x0001_0000_0000_0000), 8);
+            assert_eq!(calculate_depth(0, 0x0010_0000_0000_0000), 9);
+            assert_eq!(calculate_depth(0, 0x0100_0000_0000_0000), 10);
+            assert_eq!(calculate_depth(0, 0x1000_0000_0000_0000), 11);
+            assert_eq!(calculate_depth(0, 0xFFFF_FFFF_FFFF_FFFF), 12);
         }
 
         // as of writing this comment, longer buffers than 2^64-1 bytes are not supported

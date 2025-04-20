@@ -1,7 +1,7 @@
 use crate::{long::LongHkeyExpanded, Hkey, PsHkeyError};
 
 impl LongHkeyExpanded {
-    /// transforms this LongHkey into a Hkey::ListRef
+    /// transforms this [`LongHkey`] into a [`Hkey::ListRef`]
     pub fn shrink<E, Ef, F>(&self, store: &F) -> Result<Hkey, E>
     where
         E: From<Ef> + From<PsHkeyError> + Send,

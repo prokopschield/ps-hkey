@@ -35,7 +35,7 @@ impl LongHkeyExpanded {
                 .map(|(index, chunk)| {
                     let start = index * segment_length;
                     let end = start + chunk.len();
-                    let hkey = LongHkeyExpanded::from_blob(store, chunk)?.shrink(store)?;
+                    let hkey = Self::from_blob(store, chunk)?.shrink(store)?;
 
                     Ok((start..end, hkey))
                 })
@@ -56,7 +56,7 @@ impl LongHkeyExpanded {
         };
 
         let parts = Arc::from(parts?.into_boxed_slice());
-        let lhkey = LongHkeyExpanded::new(depth, data.len(), parts);
+        let lhkey = Self::new(depth, data.len(), parts);
 
         Ok(lhkey)
     }

@@ -113,7 +113,7 @@ impl LongHkeyExpanded {
             })
             .collect();
 
-        let lhkey = LongHkeyExpanded::new(0, length, Arc::from(parts?.into_boxed_slice()));
+        let lhkey = Self::new(0, length, Arc::from(parts?.into_boxed_slice()));
 
         Ok(Arc::from(lhkey))
     }
@@ -143,7 +143,7 @@ impl LongHkeyExpanded {
 
         let iterator = (0..length.div_ceil(segment_length)).into_par_iter();
 
-        let transformer = |lhkey: &LongHkeyExpanded| Ok::<_, E>(lhkey.store(store)?.into());
+        let transformer = |lhkey: &Self| Ok::<_, E>(lhkey.store(store)?.into());
 
         let parts: Result<Vec<_>, E> = iterator
             .map(|index| {
@@ -173,7 +173,7 @@ impl LongHkeyExpanded {
 
         let parts = Arc::from(parts?.into_boxed_slice());
 
-        let lhkey = LongHkeyExpanded::new(depth, length, parts);
+        let lhkey = Self::new(depth, length, parts);
 
         Ok(Arc::from(lhkey))
     }

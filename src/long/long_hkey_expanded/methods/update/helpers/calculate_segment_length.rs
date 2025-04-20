@@ -26,21 +26,21 @@ mod tests {
     fn powers() {
         assert_eq!(calculate_segment_length(0), 0x1000);
         assert_eq!(calculate_segment_length(1), 0x10000);
-        assert_eq!(calculate_segment_length(2), 0x100000);
-        assert_eq!(calculate_segment_length(3), 0x1000000);
-        assert_eq!(calculate_segment_length(4), 0x10000000);
+        assert_eq!(calculate_segment_length(2), 0x0010_0000);
+        assert_eq!(calculate_segment_length(3), 0x0100_0000);
+        assert_eq!(calculate_segment_length(4), 0x1000_0000);
 
         // disable on 32-bit platforms
         #[cfg(target_pointer_width = "64")]
         {
-            assert_eq!(calculate_segment_length(5), 0x100000000);
-            assert_eq!(calculate_segment_length(6), 0x1000000000);
-            assert_eq!(calculate_segment_length(7), 0x10000000000);
-            assert_eq!(calculate_segment_length(8), 0x100000000000);
-            assert_eq!(calculate_segment_length(9), 0x1000000000000);
-            assert_eq!(calculate_segment_length(10), 0x10000000000000);
-            assert_eq!(calculate_segment_length(11), 0x100000000000000);
-            assert_eq!(calculate_segment_length(12), 0x1000000000000000);
+            assert_eq!(calculate_segment_length(5), 0x0001_0000_0000);
+            assert_eq!(calculate_segment_length(6), 0x0010_0000_0000);
+            assert_eq!(calculate_segment_length(7), 0x0100_0000_0000);
+            assert_eq!(calculate_segment_length(8), 0x1000_0000_0000);
+            assert_eq!(calculate_segment_length(9), 0x0001_0000_0000_0000);
+            assert_eq!(calculate_segment_length(10), 0x0010_0000_0000_0000);
+            assert_eq!(calculate_segment_length(11), 0x0100_0000_0000_0000);
+            assert_eq!(calculate_segment_length(12), 0x1000_0000_0000_0000);
         }
 
         // as of writing this comment, longer buffers than 2^64-1 bytes are not supported

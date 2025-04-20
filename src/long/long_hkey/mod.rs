@@ -21,22 +21,27 @@ impl Display for LongHkey {
 }
 
 impl LongHkey {
-    pub fn from_hash_and_key(hash: Arc<Hash>, key: Arc<Hash>) -> Self {
+    #[must_use]
+    pub const fn from_hash_and_key(hash: Arc<Hash>, key: Arc<Hash>) -> Self {
         Self { hash, key }
     }
 
+    #[must_use]
     pub fn hash(&self) -> Arc<Hash> {
         self.hash.clone()
     }
 
+    #[must_use]
     pub fn hash_ref(&self) -> &Hash {
         &self.hash
     }
 
+    #[must_use]
     pub fn key(&self) -> Arc<Hash> {
         self.key.clone()
     }
 
+    #[must_use]
     pub fn key_ref(&self) -> &Hash {
         &self.key
     }
@@ -44,11 +49,11 @@ impl LongHkey {
     pub fn expand_from_lhkey_str(expanded_data: &[u8]) -> Result<LongHkeyExpanded, PsHkeyError> {
         if expanded_data.len() < 6 {
             // empty array: {0;0;}
-            Err(PsHkeyError::FormatError)?
+            Err(PsHkeyError::FormatError)?;
         }
 
         if expanded_data[0] != b'{' || expanded_data[expanded_data.len() - 1] != b'}' {
-            Err(PsHkeyError::FormatError)?
+            Err(PsHkeyError::FormatError)?;
         }
 
         let parts_data = &expanded_data[1..expanded_data.len() - 1];
@@ -58,7 +63,7 @@ impl LongHkey {
         let parts: Vec<&str> = parts_data.split(';').collect();
 
         if parts.len() != 3 {
-            Err(PsHkeyError::FormatError)?
+            Err(PsHkeyError::FormatError)?;
         }
 
         let depth: u32 = parts[0].parse().map_err(PsHkeyError::from)?;
@@ -70,6 +75,7 @@ impl LongHkey {
             let start: usize = start.parse()?;
             let end: usize = end.parse()?;
             let hkey: Hkey = Hkey::from(hkey);
+            #[allow(clippy::range_plus_one)]
             Ok((start..end + 1, hkey))
         });
 

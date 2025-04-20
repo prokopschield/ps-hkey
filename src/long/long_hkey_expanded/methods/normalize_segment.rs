@@ -56,7 +56,7 @@ impl LongHkeyExpanded {
         if depth == 0 && length <= LHKEY_SEGMENT_MAX_LENGTH {
             let data = self.resolve_slice(&resolver, range)?;
             let parts = Arc::from([(0..length, store(&data)?)]);
-            let lhkey = LongHkeyExpanded::new(0, data.len(), parts);
+            let lhkey = Self::new(0, data.len(), parts);
 
             return Ok(Arc::from(lhkey));
         }
@@ -82,7 +82,7 @@ impl LongHkeyExpanded {
 
             let parts = Arc::from(parts?.into_boxed_slice());
 
-            let lhkey = LongHkeyExpanded::new(1, length, parts);
+            let lhkey = Self::new(1, length, parts);
 
             return Ok(Arc::from(lhkey));
         }
@@ -106,7 +106,7 @@ impl LongHkeyExpanded {
 
         let parts = Arc::from(parts?.into_boxed_slice());
 
-        let lhkey = LongHkeyExpanded::new(depth, length, parts);
+        let lhkey = Self::new(depth, length, parts);
 
         Ok(Arc::from(lhkey))
     }
