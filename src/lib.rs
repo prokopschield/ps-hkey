@@ -317,12 +317,12 @@ impl Hkey {
     pub fn resolve_async_box<'a, 'lt, E, F, Ff>(
         &'a self,
         resolver: &'a F,
-    ) -> Pin<Box<dyn Future<Output = TResult<DataChunk<'lt>, E>> + 'a>>
+    ) -> Pin<Box<dyn Future<Output = TResult<DataChunk<'lt>, E>> + Send + 'a>>
     where
         'lt: 'a,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send + 'a,
-        F: Fn(&Hash) -> Ff,
-        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Sync + 'a,
+        F: Fn(&Hash) -> Ff + Sync,
+        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Send + Sync + 'a,
     {
         Box::pin(async move { self.resolve_async(resolver).await })
     }
@@ -330,8 +330,8 @@ impl Hkey {
     pub async fn resolve_async<'lt, E, F, Ff>(&self, resolver: &F) -> TResult<DataChunk<'lt>, E>
     where
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Ff,
-        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Sync,
+        F: Fn(&Hash) -> Ff + Sync,
+        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Send + Sync,
     {
         let chunk = match self {
             Self::Raw(raw) => OwnedDataChunk::from_data_ref(raw).into(),
@@ -363,8 +363,8 @@ impl Hkey {
     ) -> TResult<SerializedDataChunk, E>
     where
         E: From<PsDataChunkError>,
-        F: Fn(&Hash) -> Ff,
-        Ff: Future<Output = TResult<DataChunk<'lt>, E>>,
+        F: Fn(&Hash) -> Ff + Sync,
+        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Send,
     {
         let encrypted = resolver(hash).await?;
         let decrypted = encrypted.decrypt(key.as_bytes())?;
@@ -379,8 +379,8 @@ impl Hkey {
     ) -> TResult<DataChunk<'lt>, E>
     where
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Ff,
-        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Sync,
+        F: Fn(&Hash) -> Ff + Sync,
+        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Send + Sync,
     {
         let list_bytes = Self::resolve_encrypted_async(hash, key, resolver).await?;
 
@@ -395,8 +395,8 @@ impl Hkey {
     ) -> TResult<OwnedDataChunk, E>
     where
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Ff,
-        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Sync,
+        F: Fn(&Hash) -> Ff + Sync,
+        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Send + Sync,
     {
         // Iterator over the list
         let hkey_iter = list.iter();
@@ -406,7 +406,7 @@ impl Hkey {
 
         // Apply the closure to each item in the iterator
         let futures = hkey_iter.map(closure).collect();
-        let futures: Vec<Pin<Box<dyn Future<Output = TResult<DataChunk, E>>>>> = futures;
+        let futures: Vec<Pin<Box<dyn Future<Output = TResult<DataChunk, E>> + Send>>> = futures;
 
         // Join futures into a single Future, then await it
         let joined = futures::future::join_all(futures).await;
@@ -428,8 +428,8 @@ impl Hkey {
     ) -> TResult<Arc<[u8]>, E>
     where
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Ff,
-        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Sync,
+        F: Fn(&Hash) -> Ff + Sync,
+        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Send + Sync,
     {
         let resolved = resolver(hash).await?;
         let decrypted = resolved.decrypt(key)?;
@@ -445,8 +445,8 @@ impl Hkey {
     ) -> TResult<Arc<[u8]>, E>
     where
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Ff,
-        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Sync,
+        F: Fn(&Hash) -> Ff + Sync,
+        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Send + Sync,
     {
         let mut to_skip = range.start;
         let mut to_take = range.end - range.start;
@@ -475,12 +475,12 @@ impl Hkey {
         &'a self,
         resolver: &'a F,
         range: Range,
-    ) -> Pin<Box<dyn Future<Output = TResult<Arc<[u8]>, E>> + 'a>>
+    ) -> Pin<Box<dyn Future<Output = TResult<Arc<[u8]>, E>> + Send + 'a>>
     where
         'lt: 'a,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send + 'a,
-        F: Fn(&Hash) -> Ff,
-        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Sync + 'a,
+        F: Fn(&Hash) -> Ff + Sync,
+        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Send + Sync + 'a,
     {
         Box::pin(async move { self.resolve_slice_async(resolver, range).await })
     }
@@ -492,8 +492,8 @@ impl Hkey {
     ) -> TResult<Arc<[u8]>, E>
     where
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Ff,
-        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Sync,
+        F: Fn(&Hash) -> Ff + Sync,
+        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Send + Sync,
     {
         match self {
             Self::List(list) => Self::resolve_list_slice_async(list, resolver, range).await,
@@ -565,7 +565,7 @@ impl Hkey {
     pub async fn shrink_or_not_async<'lt, E, F>(&self, store: &F) -> TResult<Option<Self>, E>
     where
         E: From<PsHkeyError> + Send,
-        F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Self, E>>>> + Sync,
+        F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Self, E>> + Send>> + Sync,
     {
         match self {
             Self::Raw(raw) => {
@@ -615,7 +615,7 @@ impl Hkey {
     pub async fn shrink_into_async<'lt, E, F>(self, store: &F) -> TResult<Self, E>
     where
         E: From<PsHkeyError> + Send,
-        F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Self, E>>>> + Sync,
+        F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Self, E>> + Send>> + Sync,
     {
         (self.shrink_or_not_async(store).await?).map_or_else(|| self.ok(), ps_util::ToResult::ok)
     }
@@ -633,7 +633,7 @@ impl Hkey {
     pub async fn shrink_async<E, F>(&self, store: &F) -> TResult<Self, E>
     where
         E: From<PsHkeyError> + Send,
-        F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Self, E>>>> + Sync,
+        F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Self, E>> + Send>> + Sync,
     {
         (self.shrink_or_not_async(store).await?)
             .map_or_else(|| self.clone().ok(), ps_util::ToResult::ok)
@@ -650,7 +650,7 @@ impl Hkey {
     pub async fn shrink_to_string_async<'lt, E, F>(&self, store: &F) -> TResult<String, E>
     where
         E: From<PsHkeyError> + Send,
-        F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Self, E>>>> + Sync,
+        F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Self, E>> + Send>> + Sync,
     {
         self.shrink_async(store).await?.to_string().ok()
     }

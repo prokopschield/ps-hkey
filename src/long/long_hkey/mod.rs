@@ -110,8 +110,8 @@ impl LongHkey {
     pub async fn expand_async<'lt, E, F, Ff>(&self, resolver: &F) -> Result<LongHkeyExpanded, E>
     where
         E: From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Ff,
-        Ff: Future<Output = Result<DataChunk<'lt>, E>> + Sync,
+        F: Fn(&Hash) -> Ff + Sync,
+        Ff: Future<Output = Result<DataChunk<'lt>, E>> + Send + Sync,
     {
         let future = resolver(&self.hash);
         let chunk = future.await?;

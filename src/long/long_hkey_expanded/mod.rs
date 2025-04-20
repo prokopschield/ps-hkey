@@ -79,8 +79,8 @@ impl LongHkeyExpanded {
     pub async fn resolve_async<'lt, E, F, Ff>(&self, resolver: &F) -> Result<Arc<[u8]>, E>
     where
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Ff,
-        Ff: Future<Output = Result<DataChunk<'lt>, E>> + Sync,
+        F: Fn(&Hash) -> Ff + Sync,
+        Ff: Future<Output = Result<DataChunk<'lt>, E>> + Send + Sync,
     {
         self.resolve_slice_async(resolver, 0..self.size).await
     }
@@ -92,8 +92,8 @@ impl LongHkeyExpanded {
     ) -> Result<Arc<[u8]>, E>
     where
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Ff,
-        Ff: Future<Output = Result<DataChunk<'lt>, E>> + Sync,
+        F: Fn(&Hash) -> Ff + Sync,
+        Ff: Future<Output = Result<DataChunk<'lt>, E>> + Send + Sync,
     {
         let futures = self
             .parts

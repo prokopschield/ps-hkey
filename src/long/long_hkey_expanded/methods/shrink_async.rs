@@ -8,8 +8,8 @@ impl LongHkeyExpanded {
     where
         E: From<Ef> + From<PsHkeyError> + Send,
         Ef: Into<E> + Send,
-        F: Fn(&[u8]) -> Ff,
-        Ff: Future<Output = Result<Hkey, Ef>> + Sync,
+        F: Fn(&[u8]) -> Ff + Sync,
+        Ff: Future<Output = Result<Hkey, Ef>> + Send + Sync,
     {
         Ok(self.store_async(store).await?.into())
     }
