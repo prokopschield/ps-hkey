@@ -34,9 +34,11 @@ mod tests {
             Err(err) => err.into_inner(),
         };
 
-        let fetch = |hash: &Hash| match hashmap().get(hash) {
-            Some(chunk) => Ok(DataChunk::Owned(chunk.to_owned())),
-            None => Err(PsHkeyError::StorageError),
+        let fetch = |hash: &Hash| {
+            hashmap().get(hash).map_or_else(
+                || Err(PsHkeyError::StorageError),
+                |chunk| Ok(DataChunk::Owned(chunk.to_owned())),
+            )
         };
 
         let store = |bytes: &[u8]| {

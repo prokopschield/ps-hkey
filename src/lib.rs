@@ -1,4 +1,5 @@
 #![allow(clippy::missing_errors_doc)]
+#![allow(clippy::module_name_repetitions)]
 mod error;
 mod long;
 pub use error::PsHkeyError;
@@ -83,11 +84,11 @@ impl Hkey {
 
     pub fn try_as_list(list: &[u8]) -> Result<Self> {
         let last_index = list.len() - 1;
-        let first = *list.first().ok_or(PsHkeyError::FormatError)?;
-        let last = *list.get(last_index).ok_or(PsHkeyError::FormatError)?;
+        let first_byte = *list.first().ok_or(PsHkeyError::FormatError)?;
+        let last_byte = *list.get(last_index).ok_or(PsHkeyError::FormatError)?;
         let content = &list[1..last_index];
 
-        if first != b'[' || last != b']' {
+        if first_byte != b'[' || last_byte != b']' {
             Err(PsHkeyError::FormatError)?;
         }
 
@@ -133,9 +134,8 @@ impl Hkey {
 
     #[must_use]
     pub fn format_list(list: &[Self]) -> String {
-        let first = match list.first() {
-            Some(first) => first,
-            None => return "[]".to_string(),
+        let Some(first) = list.first() else {
+            return "[]".to_string();
         };
 
         let mut accumulator = format!("[{first}");
@@ -278,8 +278,8 @@ impl Hkey {
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         F: Fn(&Hash) -> TResult<DataChunk<'lt>, E> + Sync,
     {
-        let resolved = resolver(hash)?;
-        let decrypted = resolved.decrypt(key)?;
+        let chunk = resolver(hash)?;
+        let decrypted = chunk.decrypt(key)?;
         let hkey = Self::from(decrypted.data_ref());
 
         hkey.resolve_slice(resolver, range)
@@ -431,8 +431,8 @@ impl Hkey {
         F: Fn(&Hash) -> Ff + Sync,
         Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Send + Sync,
     {
-        let resolved = resolver(hash).await?;
-        let decrypted = resolved.decrypt(key)?;
+        let chunk = resolver(hash).await?;
+        let decrypted = chunk.decrypt(key)?;
         let hkey = Self::from(decrypted.data_ref());
 
         hkey.resolve_slice_async_box(resolver, range).await
