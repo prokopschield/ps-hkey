@@ -18,7 +18,7 @@ use crate::{
 
 impl LongHkeyExpanded {
     /// only to be used with depth=0
-    pub fn update_flat<'lt, E, Ef, Es, F, S>(
+    pub fn update_flat<C, E, Ef, Es, F, S>(
         &self,
         fetch: &F,
         store: &S,
@@ -26,10 +26,11 @@ impl LongHkeyExpanded {
         range: &Range,
     ) -> Result<Arc<Self>, E>
     where
+        C: DataChunk + Send,
         E: From<Ef> + From<Es> + From<PsHkeyError> + From<PsDataChunkError> + Send,
         Ef: Into<E> + Send,
         Es: Into<E> + Send,
-        F: Fn(&Hash) -> Result<DataChunk<'lt>, Ef> + Sync,
+        F: Fn(&Hash) -> Result<C, Ef> + Sync,
         S: Fn(&[u8]) -> Result<Hkey, Es> + Sync,
     {
         let fetch = &|hash: &Hash| Ok::<_, E>(fetch(hash)?);
@@ -118,7 +119,7 @@ impl LongHkeyExpanded {
         Ok(Arc::from(lhkey))
     }
 
-    pub fn update<'lt, E, Ef, Es, F, S>(
+    pub fn update<C, E, Ef, Es, F, S>(
         &self,
         fetch: &F,
         store: &S,
@@ -126,10 +127,11 @@ impl LongHkeyExpanded {
         range: Range,
     ) -> Result<Arc<Self>, E>
     where
+        C: DataChunk + Send,
         E: From<Ef> + From<Es> + From<PsHkeyError> + From<PsDataChunkError> + Send,
         Ef: Into<E> + Send,
         Es: Into<E> + Send,
-        F: Fn(&Hash) -> Result<DataChunk<'lt>, Ef> + Sync,
+        F: Fn(&Hash) -> Result<C, Ef> + Sync,
         S: Fn(&[u8]) -> Result<Hkey, Es> + Sync,
     {
         let range = range.start..range.end.min(range.start + data.len());

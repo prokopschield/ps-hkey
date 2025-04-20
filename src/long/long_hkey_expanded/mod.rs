@@ -30,18 +30,20 @@ impl LongHkeyExpanded {
         Self { depth, size, parts }
     }
 
-    pub fn resolve<'lt, E, F>(&self, resolver: &F) -> Result<Arc<[u8]>, E>
+    pub fn resolve<C, E, F>(&self, resolver: &F) -> Result<Arc<[u8]>, E>
     where
+        C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Result<DataChunk<'lt>, E> + Sync,
+        F: Fn(&Hash) -> Result<C, E> + Sync,
     {
         self.resolve_slice(resolver, 0..self.size)
     }
 
-    pub fn resolve_slice<'lt, E, F>(&self, resolver: &F, range: Range) -> Result<Arc<[u8]>, E>
+    pub fn resolve_slice<C, E, F>(&self, resolver: &F, range: Range) -> Result<Arc<[u8]>, E>
     where
+        C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Result<DataChunk<'lt>, E> + Sync,
+        F: Fn(&Hash) -> Result<C, E> + Sync,
     {
         // Collect the data chunks in parallel
         let result: Result<Vec<Arc<[u8]>>, E> = self
@@ -76,24 +78,26 @@ impl LongHkeyExpanded {
         Ok(combined_result.into())
     }
 
-    pub async fn resolve_async<'lt, E, F, Ff>(&self, resolver: &F) -> Result<Arc<[u8]>, E>
+    pub async fn resolve_async<'lt, C, E, F, Ff>(&self, resolver: &F) -> Result<Arc<[u8]>, E>
     where
+        C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = Result<DataChunk<'lt>, E>> + Send + Sync,
+        Ff: Future<Output = Result<C, E>> + Send + Sync,
     {
         self.resolve_slice_async(resolver, 0..self.size).await
     }
 
-    pub async fn resolve_slice_async<'lt, E, F, Ff>(
+    pub async fn resolve_slice_async<'lt, C, E, F, Ff>(
         &self,
         resolver: &F,
         range: Range,
     ) -> Result<Arc<[u8]>, E>
     where
+        C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = Result<DataChunk<'lt>, E>> + Send + Sync,
+        Ff: Future<Output = Result<C, E>> + Send + Sync,
     {
         let futures = self
             .parts

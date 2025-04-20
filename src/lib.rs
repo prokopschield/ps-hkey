@@ -2,6 +2,7 @@
 #![allow(clippy::module_name_repetitions)]
 mod error;
 mod long;
+mod resolved;
 pub use error::PsHkeyError;
 pub use error::Result;
 pub use long::LongHkey;
@@ -14,6 +15,7 @@ pub use ps_hash::Hash;
 use ps_util::ToResult;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
+use resolved::Resolved;
 use std::future::Future;
 use std::pin::Pin;
 use std::result::Result as TResult;
@@ -158,17 +160,18 @@ impl Hkey {
         }
     }
 
-    pub fn resolve<'lt, E, F>(&self, resolver: &F) -> TResult<DataChunk<'lt>, E>
+    pub fn resolve<C, E, F>(&self, resolver: &F) -> TResult<Resolved<C>, E>
     where
+        C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> TResult<DataChunk<'lt>, E> + Sync,
+        F: Fn(&Hash) -> TResult<C, E> + Sync,
     {
         let chunk = match self {
-            Self::Raw(raw) => OwnedDataChunk::from_data_ref(raw).into(),
+            Self::Raw(raw) => raw.clone().into(),
             Self::Base64(base64) => {
-                OwnedDataChunk::from_data(ps_base64::decode(base64.as_bytes())).into()
+                OwnedDataChunk::from_data(ps_base64::decode(base64.as_bytes()))?.into()
             }
-            Self::Direct(hash) => resolver(hash)?,
+            Self::Direct(hash) => Resolved::Custom(resolver(hash)?),
             Self::Encrypted(hash, key) => Self::resolve_encrypted(hash, key, resolver)?.into(),
             Self::ListRef(hash, key) => Self::resolve_list_ref(hash, key, resolver)?,
             Self::List(list) => Self::resolve_list(list, resolver)?.into(),
@@ -176,7 +179,7 @@ impl Hkey {
                 let expanded = lhkey.expand(resolver)?;
                 let data = expanded.resolve(resolver)?;
 
-                DataChunk::from(data)
+                data.into()
             }
             Self::LongHkeyExpanded(lhkey) => lhkey.resolve(resolver)?.into(),
         };
@@ -184,14 +187,15 @@ impl Hkey {
         Ok(chunk)
     }
 
-    pub fn resolve_encrypted<'lt, E, F>(
+    pub fn resolve_encrypted<C, E, F>(
         hash: &Hash,
         key: &Hash,
         resolver: &F,
     ) -> TResult<SerializedDataChunk, E>
     where
+        C: DataChunk + Send,
         E: From<PsDataChunkError>,
-        F: Fn(&Hash) -> TResult<DataChunk<'lt>, E>,
+        F: Fn(&Hash) -> TResult<C, E>,
     {
         let encrypted = resolver(hash)?;
         let decrypted = encrypted.decrypt(key.as_bytes())?;
@@ -199,24 +203,26 @@ impl Hkey {
         Ok(decrypted)
     }
 
-    pub fn resolve_list_ref<'lt, E, F>(
+    pub fn resolve_list_ref<C, E, F>(
         hash: &Hash,
         key: &Hash,
         resolver: &F,
-    ) -> TResult<DataChunk<'lt>, E>
+    ) -> TResult<Resolved<C>, E>
     where
+        C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> TResult<DataChunk<'lt>, E> + Sync,
+        F: Fn(&Hash) -> TResult<C, E> + Sync,
     {
         let list_bytes = Self::resolve_encrypted(hash, key, resolver)?;
 
         Self::from(list_bytes.data_ref()).resolve(resolver)
     }
 
-    pub fn resolve_list<'lt, E, F>(list: &[Self], resolver: &F) -> TResult<OwnedDataChunk, E>
+    pub fn resolve_list<C, E, F>(list: &[Self], resolver: &F) -> TResult<OwnedDataChunk, E>
     where
+        C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> TResult<DataChunk<'lt>, E> + Sync,
+        F: Fn(&Hash) -> TResult<C, E> + Sync,
     {
         // Parallel iterator over the list
         let hkey_iter = list.into_par_iter();
@@ -225,7 +231,7 @@ impl Hkey {
         let closure = |hkey: &Self| hkey.resolve(resolver);
 
         // Apply the closure to each item in the iterator
-        let results: TResult<Vec<DataChunk>, E> = hkey_iter.map(closure).collect();
+        let results: TResult<Vec<Resolved<C>>, E> = hkey_iter.map(closure).collect();
 
         let mut data = Vec::new();
 
@@ -233,17 +239,18 @@ impl Hkey {
             data.extend_from_slice(result.data_ref());
         }
 
-        Ok(OwnedDataChunk::from_data(data))
+        Ok(OwnedDataChunk::from_data(data)?)
     }
 
-    pub fn resolve_list_slice<'lt, E, F>(
+    pub fn resolve_list_slice<C, E, F>(
         list: &[Self],
         resolver: &F,
         range: Range,
     ) -> TResult<Arc<[u8]>, E>
     where
+        C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> TResult<DataChunk<'lt>, E> + Sync,
+        F: Fn(&Hash) -> TResult<C, E> + Sync,
     {
         let mut to_skip = range.start;
         let mut to_take = range.end - range.start;
@@ -268,15 +275,16 @@ impl Hkey {
         Ok(buffer.into())
     }
 
-    pub fn resolve_list_ref_slice<'lt, E, F>(
+    pub fn resolve_list_ref_slice<C, E, F>(
         hash: &Hash,
         key: &[u8],
         resolver: &F,
         range: Range,
     ) -> TResult<Arc<[u8]>, E>
     where
+        C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> TResult<DataChunk<'lt>, E> + Sync,
+        F: Fn(&Hash) -> TResult<C, E> + Sync,
     {
         let chunk = resolver(hash)?;
         let decrypted = chunk.decrypt(key)?;
@@ -285,10 +293,11 @@ impl Hkey {
         hkey.resolve_slice(resolver, range)
     }
 
-    pub fn resolve_slice<'lt, E, F>(&self, resolver: &F, range: Range) -> TResult<Arc<[u8]>, E>
+    pub fn resolve_slice<C, E, F>(&self, resolver: &F, range: Range) -> TResult<Arc<[u8]>, E>
     where
+        C: DataChunk + std::marker::Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> TResult<DataChunk<'lt>, E> + Sync,
+        F: Fn(&Hash) -> TResult<C, E> + Sync,
     {
         match self {
             Self::List(list) => Self::resolve_list_slice(list, resolver, range),
@@ -314,31 +323,33 @@ impl Hkey {
         }
     }
 
-    pub fn resolve_async_box<'a, 'lt, E, F, Ff>(
+    pub fn resolve_async_box<'a, 'lt, C, E, F, Ff>(
         &'a self,
         resolver: &'a F,
-    ) -> Pin<Box<dyn Future<Output = TResult<DataChunk<'lt>, E>> + Send + 'a>>
+    ) -> Pin<Box<dyn Future<Output = TResult<Resolved<C>, E>> + Send + 'a>>
     where
         'lt: 'a,
+        C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send + 'a,
         F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Send + Sync + 'a,
+        Ff: Future<Output = TResult<C, E>> + Send + Sync + 'a,
     {
         Box::pin(async move { self.resolve_async(resolver).await })
     }
 
-    pub async fn resolve_async<'lt, E, F, Ff>(&self, resolver: &F) -> TResult<DataChunk<'lt>, E>
+    pub async fn resolve_async<'lt, C, E, F, Ff>(&self, resolver: &F) -> TResult<Resolved<C>, E>
     where
+        C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Send + Sync,
+        Ff: Future<Output = TResult<C, E>> + Send + Sync,
     {
         let chunk = match self {
-            Self::Raw(raw) => OwnedDataChunk::from_data_ref(raw).into(),
+            Self::Raw(raw) => raw.clone().into(),
             Self::Base64(base64) => {
-                OwnedDataChunk::from_data(ps_base64::decode(base64.as_bytes())).into()
+                OwnedDataChunk::from_data(ps_base64::decode(base64.as_bytes()))?.into()
             }
-            Self::Direct(hash) => resolver(hash).await?,
+            Self::Direct(hash) => Resolved::Custom(resolver(hash).await?),
             Self::Encrypted(hash, key) => Self::resolve_encrypted_async(hash, key, resolver)
                 .await?
                 .into(),
@@ -356,15 +367,16 @@ impl Hkey {
         Ok(chunk)
     }
 
-    pub async fn resolve_encrypted_async<'lt, E, F, Ff>(
+    pub async fn resolve_encrypted_async<'lt, C, E, F, Ff>(
         hash: &Hash,
         key: &Hash,
         resolver: &F,
     ) -> TResult<SerializedDataChunk, E>
     where
+        C: DataChunk + Send,
         E: From<PsDataChunkError>,
         F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Send,
+        Ff: Future<Output = TResult<C, E>> + Send,
     {
         let encrypted = resolver(hash).await?;
         let decrypted = encrypted.decrypt(key.as_bytes())?;
@@ -372,15 +384,16 @@ impl Hkey {
         Ok(decrypted)
     }
 
-    pub async fn resolve_list_ref_async<'lt, E, F, Ff>(
+    pub async fn resolve_list_ref_async<'lt, C, E, F, Ff>(
         hash: &Hash,
         key: &Hash,
         resolver: &F,
-    ) -> TResult<DataChunk<'lt>, E>
+    ) -> TResult<Resolved<C>, E>
     where
+        C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Send + Sync,
+        Ff: Future<Output = TResult<C, E>> + Send + Sync,
     {
         let list_bytes = Self::resolve_encrypted_async(hash, key, resolver).await?;
 
@@ -389,14 +402,15 @@ impl Hkey {
             .await
     }
 
-    pub async fn resolve_list_async<'k, 'lt, E, F, Ff>(
+    pub async fn resolve_list_async<'k, 'lt, C, E, F, Ff>(
         list: &'k [Self],
         resolver: &F,
     ) -> TResult<OwnedDataChunk, E>
     where
+        C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Send + Sync,
+        Ff: Future<Output = TResult<C, E>> + Send + Sync,
     {
         // Iterator over the list
         let hkey_iter = list.iter();
@@ -406,7 +420,7 @@ impl Hkey {
 
         // Apply the closure to each item in the iterator
         let futures = hkey_iter.map(closure).collect();
-        let futures: Vec<Pin<Box<dyn Future<Output = TResult<DataChunk, E>> + Send>>> = futures;
+        let futures: Vec<Pin<Box<dyn Future<Output = TResult<Resolved<C>, E>> + Send>>> = futures;
 
         // Join futures into a single Future, then await it
         let joined = futures::future::join_all(futures).await;
@@ -417,19 +431,20 @@ impl Hkey {
             data.extend_from_slice(result?.data_ref());
         }
 
-        Ok(OwnedDataChunk::from_data(data))
+        Ok(OwnedDataChunk::from_data(data)?)
     }
 
-    pub async fn resolve_list_ref_slice_async<'lt, E, F, Ff>(
+    pub async fn resolve_list_ref_slice_async<'lt, C, E, F, Ff>(
         hash: &Hash,
         key: &[u8],
         resolver: &F,
         range: Range,
     ) -> TResult<Arc<[u8]>, E>
     where
+        C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Send + Sync,
+        Ff: Future<Output = TResult<C, E>> + Send + Sync,
     {
         let chunk = resolver(hash).await?;
         let decrypted = chunk.decrypt(key)?;
@@ -438,15 +453,16 @@ impl Hkey {
         hkey.resolve_slice_async_box(resolver, range).await
     }
 
-    pub async fn resolve_list_slice_async<'k, 'lt, E, F, Ff>(
+    pub async fn resolve_list_slice_async<'k, 'lt, C, E, F, Ff>(
         list: &'k [Self],
         resolver: &F,
         range: Range,
     ) -> TResult<Arc<[u8]>, E>
     where
+        C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Send + Sync,
+        Ff: Future<Output = TResult<C, E>> + Send + Sync,
     {
         let mut to_skip = range.start;
         let mut to_take = range.end - range.start;
@@ -471,29 +487,31 @@ impl Hkey {
         Ok(buffer.into())
     }
 
-    pub fn resolve_slice_async_box<'a, 'lt, E, F, Ff>(
+    pub fn resolve_slice_async_box<'a, 'lt, C, E, F, Ff>(
         &'a self,
         resolver: &'a F,
         range: Range,
     ) -> Pin<Box<dyn Future<Output = TResult<Arc<[u8]>, E>> + Send + 'a>>
     where
         'lt: 'a,
+        C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send + 'a,
         F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Send + Sync + 'a,
+        Ff: Future<Output = TResult<C, E>> + Send + Sync + 'a,
     {
         Box::pin(async move { self.resolve_slice_async(resolver, range).await })
     }
 
-    pub async fn resolve_slice_async<'lt, E, F, Ff>(
+    pub async fn resolve_slice_async<'lt, C, E, F, Ff>(
         &self,
         resolver: &F,
         range: Range,
     ) -> TResult<Arc<[u8]>, E>
     where
+        C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = TResult<DataChunk<'lt>, E>> + Send + Sync,
+        Ff: Future<Output = TResult<C, E>> + Send + Sync,
     {
         match self {
             Self::List(list) => Self::resolve_list_slice_async(list, resolver, range).await,

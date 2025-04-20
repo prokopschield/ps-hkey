@@ -59,7 +59,7 @@ impl LongHkeyExpanded {
                 let end = start + chunk.len();
                 let hkey = store(chunk).await?;
 
-                chunks.push((start..end, hkey))
+                chunks.push((start..end, hkey));
             }
 
             Ok(chunks)

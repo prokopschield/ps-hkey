@@ -96,10 +96,11 @@ impl LongHkey {
     }
 
     #[inline]
-    pub fn expand<'lt, E, F>(&self, resolver: &F) -> Result<LongHkeyExpanded, E>
+    pub fn expand<C, E, F>(&self, resolver: &F) -> Result<LongHkeyExpanded, E>
     where
+        C: DataChunk + Send,
         E: From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Result<DataChunk<'lt>, E> + Sync,
+        F: Fn(&Hash) -> Result<C, E> + Sync,
     {
         let encrypted = resolver(&self.hash)?;
 
@@ -107,11 +108,12 @@ impl LongHkey {
     }
 
     #[inline]
-    pub async fn expand_async<'lt, E, F, Ff>(&self, resolver: &F) -> Result<LongHkeyExpanded, E>
+    pub async fn expand_async<'lt, C, E, F, Ff>(&self, resolver: &F) -> Result<LongHkeyExpanded, E>
     where
+        C: DataChunk + Send,
         E: From<PsHkeyError> + Send,
         F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = Result<DataChunk<'lt>, E>> + Send + Sync,
+        Ff: Future<Output = Result<C, E>> + Send + Sync,
     {
         let future = resolver(&self.hash);
         let chunk = future.await?;
