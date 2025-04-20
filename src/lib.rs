@@ -48,10 +48,8 @@ impl Hkey {
 
     #[must_use]
     pub fn from_base64_slice(value: &[u8]) -> Self {
-        match std::str::from_utf8(value) {
-            Ok(str) => Self::Base64(str.into()),
-            _ => Self::Raw(value.into()),
-        }
+        std::str::from_utf8(value)
+            .map_or_else(|_| Self::Raw(value.into()), |str| Self::Base64(str.into()))
     }
 
     pub fn try_as_direct(hash: &[u8]) -> Result<Self> {
@@ -130,10 +128,7 @@ impl Hkey {
 
     #[must_use]
     pub fn parse(value: &[u8]) -> Self {
-        match Self::try_as(value) {
-            Ok(hkey) => hkey,
-            _ => Self::from_base64_slice(value),
-        }
+        Self::try_as(value).unwrap_or_else(|_| Self::from_base64_slice(value))
     }
 
     #[must_use]
@@ -614,10 +609,7 @@ impl Hkey {
         Ef: Into<E> + Send,
         F: Fn(&[u8]) -> TResult<Self, Ef> + Sync,
     {
-        match self.shrink_or_not(store)? {
-            Some(hkey) => hkey.ok(),
-            None => self.ok(),
-        }
+        (self.shrink_or_not(store)?).map_or_else(|| self.ok(), ps_util::ToResult::ok)
     }
 
     pub async fn shrink_into_async<'lt, E, F>(self, store: &F) -> TResult<Self, E>
@@ -625,10 +617,7 @@ impl Hkey {
         E: From<PsHkeyError> + Send,
         F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Self, E>>>> + Sync,
     {
-        match self.shrink_or_not_async(store).await? {
-            Some(hkey) => hkey.ok(),
-            None => self.ok(),
-        }
+        (self.shrink_or_not_async(store).await?).map_or_else(|| self.ok(), ps_util::ToResult::ok)
     }
 
     pub fn shrink<E, Ef, F>(&self, store: &F) -> TResult<Self, E>
@@ -637,10 +626,8 @@ impl Hkey {
         Ef: Into<E> + Send,
         F: Fn(&[u8]) -> TResult<Self, E> + Sync,
     {
-        match self.shrink_or_not::<E, _, _>(store)? {
-            Some(hkey) => hkey.ok(),
-            None => self.clone().ok(),
-        }
+        (self.shrink_or_not::<E, _, _>(store)?)
+            .map_or_else(|| self.clone().ok(), ps_util::ToResult::ok)
     }
 
     pub async fn shrink_async<E, F>(&self, store: &F) -> TResult<Self, E>
@@ -648,10 +635,8 @@ impl Hkey {
         E: From<PsHkeyError> + Send,
         F: Fn(&[u8]) -> Pin<Box<dyn Future<Output = TResult<Self, E>>>> + Sync,
     {
-        match self.shrink_or_not_async(store).await? {
-            Some(hkey) => hkey.ok(),
-            None => self.clone().ok(),
-        }
+        (self.shrink_or_not_async(store).await?)
+            .map_or_else(|| self.clone().ok(), ps_util::ToResult::ok)
     }
 
     pub fn shrink_to_string<E, F>(&self, store: &F) -> TResult<String, E>
