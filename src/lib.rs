@@ -20,7 +20,7 @@ pub use ps_hash::Hash;
 use ps_util::ToResult;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
-use resolved::Resolved;
+pub use resolved::Resolved;
 use std::future::Future;
 use std::pin::Pin;
 use std::result::Result as TResult;
