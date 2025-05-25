@@ -1,6 +1,6 @@
 [package]
 name = "ps-hkey"
-version = "0.1.0-14"
+version = "0.1.0-15"
 edition = "2021"
 description = "This crate defines the hashkey format and provides methods for resolving them"
 license = "GPL-3.0-or-later"
@@ -8,8 +8,8 @@ license = "GPL-3.0-or-later"
 [dependencies]
 futures = "0.3.31"
 ps-base64 = "0.1.0-5"
-ps-datachunk = "0.1.0-22"
-ps-hash = "0.1.0-13"
+ps-datachunk = "0.1.0-23"
+ps-hash = "0.1.0-14"
 ps-util = "0.1.0-3"
 rayon = "1.10.0"
 thiserror = "2.0.12"
