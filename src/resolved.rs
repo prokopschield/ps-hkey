@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use ps_datachunk::{DataChunk, OwnedDataChunk, PsDataChunkError, SerializedDataChunk};
+use ps_datachunk::{Bytes, DataChunk, OwnedDataChunk, PsDataChunkError, SerializedDataChunk};
 
 pub enum Resolved<C: DataChunk> {
     Custom(C),
@@ -16,6 +16,15 @@ impl<C: DataChunk> Resolved<C> {
             Self::Data(data) => data,
             Self::Owned(owned) => owned.data_ref(),
             Self::Serialized(serialized) => serialized.data_ref(),
+        }
+    }
+
+    pub fn into_bytes(self) -> Bytes {
+        match self {
+            Self::Custom(custom) => custom.into_bytes(),
+            Self::Data(bytes) => Bytes::from_owner(bytes),
+            Self::Owned(owned) => owned.into_bytes(),
+            Self::Serialized(serialized) => serialized.into_bytes(),
         }
     }
 
