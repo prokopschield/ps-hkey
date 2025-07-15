@@ -203,7 +203,7 @@ impl Hkey {
         store: &S,
     ) -> TResult<SerializedDataChunk, E>
     where
-        C: DataChunk + Send,
+        C: DataChunk,
         E: From<PsDataChunkError>,
         S: Store<Chunk = C, Error = E>,
     {
@@ -301,7 +301,7 @@ impl Hkey {
 
     pub fn resolve_slice<C, E, S>(&self, store: &S, range: Range) -> TResult<Arc<[u8]>, E>
     where
-        C: DataChunk + std::marker::Send,
+        C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         S: Store<Chunk = C, Error = E> + Sync,
     {
@@ -379,7 +379,7 @@ impl Hkey {
         resolver: &F,
     ) -> TResult<SerializedDataChunk, E>
     where
-        C: DataChunk + Send,
+        C: DataChunk,
         E: From<PsDataChunkError>,
         F: Fn(&Hash) -> Ff + Sync,
         Ff: Future<Output = TResult<C, E>> + Send,

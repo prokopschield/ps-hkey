@@ -98,7 +98,7 @@ impl LongHkey {
     #[inline]
     pub fn expand<C, E, S>(&self, store: &S) -> Result<LongHkeyExpanded, E>
     where
-        C: DataChunk + Send,
+        C: DataChunk,
         E: From<PsHkeyError> + Send,
         S: Store<Chunk = C, Error = E> + Sync,
     {
@@ -110,7 +110,7 @@ impl LongHkey {
     #[inline]
     pub async fn expand_async<'lt, C, E, F, Ff>(&self, resolver: &F) -> Result<LongHkeyExpanded, E>
     where
-        C: DataChunk + Send,
+        C: DataChunk,
         E: From<PsHkeyError> + Send,
         F: Fn(&Hash) -> Ff + Sync,
         Ff: Future<Output = Result<C, E>> + Send + Sync,
