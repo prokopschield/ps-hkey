@@ -21,6 +21,7 @@ use ps_datachunk::OwnedDataChunk;
 use ps_datachunk::PsDataChunkError;
 use ps_datachunk::SerializedDataChunk;
 pub use ps_hash::Hash;
+use ps_promise::PromiseRejection;
 use ps_util::ToResult;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
@@ -329,100 +330,99 @@ impl Hkey {
         }
     }
 
-    pub fn resolve_async_box<'a, 'lt, C, E, F, Ff>(
+    pub fn resolve_async_box<'a, C, E, Es, S>(
         &'a self,
-        resolver: &'a F,
+        store: &'a S,
     ) -> Pin<Box<dyn Future<Output = TResult<Resolved<C>, E>> + Send + 'a>>
     where
-        'lt: 'a,
-        C: DataChunk + Send,
-        E: From<PsDataChunkError> + From<PsHkeyError> + Send + 'a,
-        F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = TResult<C, E>> + Send + Sync + 'a,
+        C: DataChunk + Send + Unpin,
+        E: From<Es> + From<PsDataChunkError> + From<PsHkeyError> + Send + 'a,
+        Es: Into<E> + PromiseRejection + Send,
+        S: AsyncStore<Chunk = C, Error = Es> + Sync,
     {
-        Box::pin(async move { self.resolve_async(resolver).await })
+        Box::pin(async move { self.resolve_async(store).await })
     }
 
-    pub async fn resolve_async<'lt, C, E, F, Ff>(&self, resolver: &F) -> TResult<Resolved<C>, E>
+    pub async fn resolve_async<'lt, C, E, Es, S>(&self, store: &S) -> TResult<Resolved<C>, E>
     where
-        C: DataChunk + Send,
-        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = TResult<C, E>> + Send + Sync,
+        C: DataChunk + Send + Unpin,
+        E: From<Es> + From<PsDataChunkError> + From<PsHkeyError> + Send,
+        Es: Into<E> + PromiseRejection + Send,
+        S: AsyncStore<Chunk = C, Error = Es> + Sync,
     {
         let chunk = match self {
             Self::Raw(raw) => raw.clone().into(),
             Self::Base64(base64) => {
                 OwnedDataChunk::from_data(ps_base64::decode(base64.as_bytes()))?.into()
             }
-            Self::Direct(hash) => Resolved::Custom(resolver(hash).await?),
-            Self::Encrypted(hash, key) => Self::resolve_encrypted_async(hash, key, resolver)
+            Self::Direct(hash) => Resolved::Custom(store.get(hash).await?),
+            Self::Encrypted(hash, key) => Self::resolve_encrypted_async(hash, key, store)
                 .await?
                 .into(),
-            Self::ListRef(hash, key) => Self::resolve_list_ref_async(hash, key, resolver).await?,
-            Self::List(list) => Self::resolve_list_async(list, resolver).await?.into(),
+            Self::ListRef(hash, key) => Self::resolve_list_ref_async(hash, key, store).await?,
+            Self::List(list) => Self::resolve_list_async(list, store).await?.into(),
             Self::LongHkey(lhkey) => lhkey
-                .expand_async(resolver)
+                .expand_async(store)
                 .await?
-                .resolve_async(resolver)
+                .resolve_async(store)
                 .await?
                 .into(),
-            Self::LongHkeyExpanded(lhkey) => lhkey.resolve_async(resolver).await?.into(),
+            Self::LongHkeyExpanded(lhkey) => lhkey.resolve_async(store).await?.into(),
         };
 
         Ok(chunk)
     }
 
-    pub async fn resolve_encrypted_async<'lt, C, E, F, Ff>(
+    pub async fn resolve_encrypted_async<'lt, C, E, Es, S>(
         hash: &Hash,
         key: &Hash,
-        resolver: &F,
+        store: &S,
     ) -> TResult<SerializedDataChunk, E>
     where
-        C: DataChunk,
-        E: From<PsDataChunkError>,
-        F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = TResult<C, E>> + Send,
+        C: DataChunk + Send + Unpin,
+        E: From<Es> + From<PsDataChunkError> + Send,
+        Es: Into<E> + PromiseRejection + Send,
+        S: AsyncStore<Chunk = C, Error = Es> + Sync,
     {
-        let encrypted = resolver(hash).await?;
+        let encrypted = store.get(hash).await?;
         let decrypted = encrypted.decrypt(key.as_bytes())?;
 
         Ok(decrypted)
     }
 
-    pub async fn resolve_list_ref_async<'lt, C, E, F, Ff>(
+    pub async fn resolve_list_ref_async<'lt, C, E, Es, S>(
         hash: &Hash,
         key: &Hash,
-        resolver: &F,
+        store: &S,
     ) -> TResult<Resolved<C>, E>
     where
-        C: DataChunk + Send,
-        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = TResult<C, E>> + Send + Sync,
+        C: DataChunk + Send + Unpin,
+        E: From<Es> + From<PsDataChunkError> + From<PsHkeyError> + Send,
+        Es: Into<E> + PromiseRejection + Send,
+        S: AsyncStore<Chunk = C, Error = Es> + Sync,
     {
-        let list_bytes = Self::resolve_encrypted_async(hash, key, resolver).await?;
+        let list_bytes = Self::resolve_encrypted_async(hash, key, store).await?;
 
         Self::from(list_bytes.data_ref())
-            .resolve_async_box(resolver)
+            .resolve_async_box(store)
             .await
     }
 
-    pub async fn resolve_list_async<'k, 'lt, C, E, F, Ff>(
+    pub async fn resolve_list_async<'k, 'lt, C, E, Es, S>(
         list: &'k [Self],
-        resolver: &F,
+        store: &S,
     ) -> TResult<OwnedDataChunk, E>
     where
-        C: DataChunk + Send,
-        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = TResult<C, E>> + Send + Sync,
+        C: DataChunk + Send + Unpin,
+        E: From<Es> + From<PsDataChunkError> + From<PsHkeyError> + Send,
+        Es: Into<E> + PromiseRejection + Send,
+        S: AsyncStore<Chunk = C, Error = Es> + Sync,
     {
         // Iterator over the list
         let hkey_iter = list.iter();
 
         // Closure to resolve each Hkey
-        let closure = |hkey: &'k Self| hkey.resolve_async_box(resolver);
+        let closure = |hkey: &'k Self| hkey.resolve_async_box(store);
 
         // Apply the closure to each item in the iterator
         let futures = hkey_iter.map(closure).collect();
@@ -440,42 +440,42 @@ impl Hkey {
         Ok(OwnedDataChunk::from_data(data)?)
     }
 
-    pub async fn resolve_list_ref_slice_async<'lt, C, E, F, Ff>(
+    pub async fn resolve_list_ref_slice_async<'lt, C, E, Es, S>(
         hash: &Hash,
         key: &[u8],
-        resolver: &F,
+        store: &S,
         range: Range,
     ) -> TResult<Arc<[u8]>, E>
     where
-        C: DataChunk + Send,
-        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = TResult<C, E>> + Send + Sync,
+        C: DataChunk + Send + Unpin,
+        E: From<Es> + From<PsDataChunkError> + From<PsHkeyError> + Send,
+        Es: Into<E> + PromiseRejection + Send,
+        S: AsyncStore<Chunk = C, Error = Es> + Sync,
     {
-        let chunk = resolver(hash).await?;
+        let chunk = store.get(hash).await?;
         let decrypted = chunk.decrypt(key)?;
         let hkey = Self::from(decrypted.data_ref());
 
-        hkey.resolve_slice_async_box(resolver, range).await
+        hkey.resolve_slice_async_box(store, range).await
     }
 
-    pub async fn resolve_list_slice_async<'k, 'lt, C, E, F, Ff>(
+    pub async fn resolve_list_slice_async<'k, 'lt, C, E, Es, S>(
         list: &'k [Self],
-        resolver: &F,
+        store: &S,
         range: Range,
     ) -> TResult<Arc<[u8]>, E>
     where
-        C: DataChunk + Send,
-        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = TResult<C, E>> + Send + Sync,
+        C: DataChunk + Send + Unpin,
+        E: From<Es> + From<PsDataChunkError> + From<PsHkeyError> + Send,
+        Es: Into<E> + PromiseRejection + Send,
+        S: AsyncStore<Chunk = C, Error = Es> + Sync,
     {
         let mut to_skip = range.start;
         let mut to_take = range.end - range.start;
         let mut buffer = Vec::with_capacity(to_take);
 
         for hkey in list {
-            let chunk = hkey.resolve_async(resolver).await?;
+            let chunk = hkey.resolve_async(store).await?;
             let data = chunk.data_ref();
             let len = data.len();
             let skip = len.max(to_skip);
@@ -493,51 +493,50 @@ impl Hkey {
         Ok(buffer.into())
     }
 
-    pub fn resolve_slice_async_box<'a, 'lt, C, E, F, Ff>(
+    pub fn resolve_slice_async_box<'a, C, E, Es, S>(
         &'a self,
-        resolver: &'a F,
+        store: &'a S,
         range: Range,
     ) -> Pin<Box<dyn Future<Output = TResult<Arc<[u8]>, E>> + Send + 'a>>
     where
-        'lt: 'a,
-        C: DataChunk + Send,
-        E: From<PsDataChunkError> + From<PsHkeyError> + Send + 'a,
-        F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = TResult<C, E>> + Send + Sync + 'a,
+        C: DataChunk + Send + Unpin,
+        E: From<Es> + From<PsDataChunkError> + From<PsHkeyError> + Send,
+        Es: Into<E> + PromiseRejection + Send,
+        S: AsyncStore<Chunk = C, Error = Es> + Sync,
     {
-        Box::pin(async move { self.resolve_slice_async(resolver, range).await })
+        Box::pin(async move { self.resolve_slice_async(store, range).await })
     }
 
-    pub async fn resolve_slice_async<'lt, C, E, F, Ff>(
+    pub async fn resolve_slice_async<'lt, C, E, Es, S>(
         &self,
-        resolver: &F,
+        store: &S,
         range: Range,
     ) -> TResult<Arc<[u8]>, E>
     where
-        C: DataChunk + Send,
-        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = TResult<C, E>> + Send + Sync,
+        C: DataChunk + Send + Unpin,
+        E: From<Es> + From<PsDataChunkError> + From<PsHkeyError> + Send,
+        Es: Into<E> + PromiseRejection + Send,
+        S: AsyncStore<Chunk = C, Error = Es> + Sync,
     {
         match self {
-            Self::List(list) => Self::resolve_list_slice_async(list, resolver, range).await,
+            Self::List(list) => Self::resolve_list_slice_async(list, store, range).await,
 
             Self::ListRef(hash, key) => {
-                Self::resolve_list_ref_slice_async(hash, key.as_bytes(), resolver, range).await
+                Self::resolve_list_ref_slice_async(hash, key.as_bytes(), store, range).await
             }
 
             Self::LongHkey(lhkey) => {
                 lhkey
-                    .expand_async(resolver)
+                    .expand_async(store)
                     .await?
-                    .resolve_slice_async(resolver, range)
+                    .resolve_slice_async(store, range)
                     .await
             }
 
-            Self::LongHkeyExpanded(lhkey) => lhkey.resolve_slice_async(resolver, range).await,
+            Self::LongHkeyExpanded(lhkey) => lhkey.resolve_slice_async(store, range).await,
 
             _ => {
-                let chunk = self.resolve_async(resolver).await?;
+                let chunk = self.resolve_async(store).await?;
                 let bytes = chunk.data_ref();
 
                 if let Some(slice) = bytes.get(range) {

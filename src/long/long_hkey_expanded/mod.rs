@@ -4,16 +4,15 @@ pub mod methods;
 
 use std::{
     fmt::{Display, Write},
-    future::Future,
     sync::Arc,
 };
 
 use futures::future::try_join_all;
 use ps_datachunk::{DataChunk, PsDataChunkError};
-use ps_hash::Hash;
+use ps_promise::PromiseRejection;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
-use crate::{Hkey, PsHkeyError, Range, Store};
+use crate::{AsyncStore, Hkey, PsHkeyError, Range, Store};
 
 use super::LongHkey;
 
@@ -78,26 +77,26 @@ impl LongHkeyExpanded {
         Ok(combined_result.into())
     }
 
-    pub async fn resolve_async<'lt, C, E, F, Ff>(&self, resolver: &F) -> Result<Arc<[u8]>, E>
+    pub async fn resolve_async<'lt, C, E, Es, S>(&self, store: &S) -> Result<Arc<[u8]>, E>
     where
-        C: DataChunk + Send,
-        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = Result<C, E>> + Send + Sync,
+        C: DataChunk + Send + Unpin,
+        E: From<Es> + From<PsDataChunkError> + From<PsHkeyError> + Send,
+        Es: Into<E> + PromiseRejection + Send,
+        S: AsyncStore<Chunk = C, Error = Es> + Sync,
     {
-        self.resolve_slice_async(resolver, 0..self.size).await
+        self.resolve_slice_async(store, 0..self.size).await
     }
 
-    pub async fn resolve_slice_async<'lt, C, E, F, Ff>(
+    pub async fn resolve_slice_async<'lt, C, E, Es, S>(
         &self,
-        resolver: &F,
+        store: &S,
         range: Range,
     ) -> Result<Arc<[u8]>, E>
     where
-        C: DataChunk + Send,
-        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = Result<C, E>> + Send + Sync,
+        C: DataChunk + Send + Unpin,
+        E: From<Es> + From<PsDataChunkError> + From<PsHkeyError> + Send,
+        Es: Into<E> + PromiseRejection + Send,
+        S: AsyncStore<Chunk = C, Error = Es> + Sync,
     {
         let futures = self
             .parts
@@ -117,7 +116,7 @@ impl LongHkeyExpanded {
                 }
             })
             .map(|(hkey, overlap_range)| async move {
-                let chunk = hkey.resolve_slice_async(resolver, overlap_range).await?;
+                let chunk = hkey.resolve_slice_async(store, overlap_range).await?;
 
                 Ok::<_, E>(chunk)
             });

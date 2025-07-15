@@ -1,10 +1,11 @@
-use std::{fmt::Display, future::Future, sync::Arc};
+use std::{fmt::Display, sync::Arc};
 
 use ps_datachunk::{utils::decrypt, DataChunk};
 use ps_hash::Hash;
+use ps_promise::PromiseRejection;
 use ps_util::ToResult;
 
-use crate::{Hkey, PsHkeyError, Store};
+use crate::{AsyncStore, Hkey, PsHkeyError, Store};
 
 use super::LongHkeyExpanded;
 
@@ -108,14 +109,14 @@ impl LongHkey {
     }
 
     #[inline]
-    pub async fn expand_async<'lt, C, E, F, Ff>(&self, resolver: &F) -> Result<LongHkeyExpanded, E>
+    pub async fn expand_async<'lt, C, E, Es, S>(&self, resolver: &S) -> Result<LongHkeyExpanded, E>
     where
-        C: DataChunk,
-        E: From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Ff + Sync,
-        Ff: Future<Output = Result<C, E>> + Send + Sync,
+        C: DataChunk + Send + Unpin,
+        E: From<Es> + From<PsHkeyError> + Send,
+        Es: Into<E> + PromiseRejection + Send,
+        S: AsyncStore<Chunk = C, Error = Es> + Sync,
     {
-        let future = resolver(&self.hash);
+        let future = resolver.get(&self.hash);
         let chunk = future.await?;
         let bytes = chunk.data_ref();
 
