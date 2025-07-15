@@ -1,11 +1,13 @@
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::type_complexity)]
+mod async_store;
 mod constants;
 mod error;
 mod long;
 mod resolved;
 mod store;
+pub use async_store::AsyncStore;
 use constants::DOUBLE_HASH_SIZE;
 use constants::HASH_SIZE;
 use constants::MAX_SIZE_BASE64;
