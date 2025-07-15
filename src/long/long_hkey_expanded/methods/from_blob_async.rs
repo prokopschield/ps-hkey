@@ -1,5 +1,8 @@
 use std::{future::Future, pin::Pin, sync::Arc};
 
+use ps_datachunk::DataChunk;
+use ps_promise::PromiseRejection;
+
 use crate::{
     long::{
         long_hkey_expanded::{
@@ -8,29 +11,29 @@ use crate::{
         },
         LongHkeyExpanded,
     },
-    Hkey, PsHkeyError, Range,
+    AsyncStore, Hkey, PsHkeyError, Range,
 };
 
 impl LongHkeyExpanded {
-    pub fn from_blob_async_box<'a, E, Es, S, Sf>(
+    pub fn from_blob_async_box<'a, C, E, Es, S>(
         store: &'a S,
         data: &'a [u8],
     ) -> Pin<Box<dyn Future<Output = Result<Self, E>> + Send + Sync + 'a>>
     where
+        C: DataChunk + Unpin,
         E: From<Es> + From<PsHkeyError> + Send + Sync,
-        Es: Into<E> + Send,
-        S: Fn(&[u8]) -> Sf + Sync,
-        Sf: Future<Output = Result<Hkey, Es>> + Send + Sync,
+        Es: Into<E> + PromiseRejection + Send,
+        S: AsyncStore<Chunk = C, Error = Es> + Sync,
     {
         Box::pin(async move { Self::from_blob_async(store, data).await })
     }
 
-    pub async fn from_blob_async<E, Es, S, Sf>(store: &S, data: &[u8]) -> Result<Self, E>
+    pub async fn from_blob_async<C, E, Es, S>(store: &S, data: &[u8]) -> Result<Self, E>
     where
+        C: DataChunk + Unpin,
         E: From<Es> + From<PsHkeyError> + Send + Sync,
-        Es: Into<E> + Send,
-        S: Fn(&[u8]) -> Sf + Sync,
-        Sf: Future<Output = Result<Hkey, Es>> + Send + Sync,
+        Es: Into<E> + PromiseRejection + Send,
+        S: AsyncStore<Chunk = C, Error = Es> + Sync,
     {
         let depth = calculate_depth(0, data.len());
 
@@ -57,7 +60,7 @@ impl LongHkeyExpanded {
             for (index, chunk) in data.chunks(LHKEY_SEGMENT_MAX_LENGTH).enumerate() {
                 let start = index * LHKEY_SEGMENT_MAX_LENGTH;
                 let end = start + chunk.len();
-                let hkey = store(chunk).await?;
+                let hkey = store.put(chunk).await?;
 
                 chunks.push((start..end, hkey));
             }

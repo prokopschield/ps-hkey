@@ -1,15 +1,16 @@
-use std::future::Future;
+use ps_datachunk::DataChunk;
+use ps_promise::PromiseRejection;
 
-use crate::{long::LongHkeyExpanded, Hkey, PsHkeyError};
+use crate::{long::LongHkeyExpanded, AsyncStore, Hkey, PsHkeyError};
 
 impl LongHkeyExpanded {
     /// transforms this [`LongHkey`] into a [`Hkey::ListRef`]
-    pub async fn shrink_async<E, Ef, F, Ff>(&self, store: &F) -> Result<Hkey, E>
+    pub async fn shrink_async<C, E, Es, S>(&self, store: &S) -> Result<Hkey, E>
     where
-        E: From<Ef> + From<PsHkeyError> + Send,
-        Ef: Into<E> + Send,
-        F: Fn(&[u8]) -> Ff + Sync,
-        Ff: Future<Output = Result<Hkey, Ef>> + Send + Sync,
+        C: DataChunk + Unpin,
+        E: From<Es> + From<PsHkeyError> + Send,
+        Es: Into<E> + PromiseRejection + Send,
+        S: AsyncStore<Chunk = C, Error = Es> + Sync,
     {
         Ok(self.store_async(store).await?.into())
     }
