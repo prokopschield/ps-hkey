@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use ps_datachunk::DataChunk;
 use rayon::{
     iter::{IndexedParallelIterator, ParallelIterator},
     slice::ParallelSlice,
@@ -13,15 +14,15 @@ use crate::{
         },
         LongHkeyExpanded,
     },
-    Hkey, PsHkeyError, Range,
+    Hkey, PsHkeyError, Range, Store,
 };
 
 impl LongHkeyExpanded {
-    pub fn from_blob<E, Es, S>(store: &S, data: &[u8]) -> Result<Self, E>
+    pub fn from_blob<C, E, S>(store: &S, data: &[u8]) -> Result<Self, E>
     where
-        E: From<Es> + From<PsHkeyError> + Send,
-        Es: Into<E> + Send,
-        S: Fn(&[u8]) -> Result<Hkey, Es> + Sync,
+        C: DataChunk,
+        E: From<PsHkeyError> + Send,
+        S: Store<Chunk = C, Error = E> + Sync,
     {
         let depth = calculate_depth(0, data.len());
 
@@ -48,7 +49,7 @@ impl LongHkeyExpanded {
                 .map(|(index, chunk)| {
                     let start = index * LHKEY_SEGMENT_MAX_LENGTH;
                     let end = start + chunk.len();
-                    let hkey = store(chunk)?;
+                    let hkey = store.put(chunk)?;
 
                     Ok((start..end, hkey))
                 })

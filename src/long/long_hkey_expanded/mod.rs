@@ -13,7 +13,7 @@ use ps_datachunk::{DataChunk, PsDataChunkError};
 use ps_hash::Hash;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
-use crate::{Hkey, PsHkeyError, Range};
+use crate::{Hkey, PsHkeyError, Range, Store};
 
 use super::LongHkey;
 
@@ -30,20 +30,20 @@ impl LongHkeyExpanded {
         Self { depth, size, parts }
     }
 
-    pub fn resolve<C, E, F>(&self, resolver: &F) -> Result<Arc<[u8]>, E>
+    pub fn resolve<C, E, S>(&self, store: &S) -> Result<Arc<[u8]>, E>
     where
         C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Result<C, E> + Sync,
+        S: Store<Chunk = C, Error = E> + Sync,
     {
-        self.resolve_slice(resolver, 0..self.size)
+        self.resolve_slice(store, 0..self.size)
     }
 
-    pub fn resolve_slice<C, E, F>(&self, resolver: &F, range: Range) -> Result<Arc<[u8]>, E>
+    pub fn resolve_slice<C, E, S>(&self, store: &S, range: Range) -> Result<Arc<[u8]>, E>
     where
         C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Result<C, E> + Sync,
+        S: Store<Chunk = C, Error = E> + Sync,
     {
         // Collect the data chunks in parallel
         let result: Result<Vec<Arc<[u8]>>, E> = self
@@ -60,7 +60,7 @@ impl LongHkeyExpanded {
                     let overlap_range = overlap_start..overlap_end;
 
                     // Fetch the data chunk using the resolver
-                    Some(hkey.resolve_slice(resolver, overlap_range))
+                    Some(hkey.resolve_slice(store, overlap_range))
                 }
             })
             .collect();

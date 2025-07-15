@@ -4,7 +4,7 @@ use ps_datachunk::{utils::decrypt, DataChunk};
 use ps_hash::Hash;
 use ps_util::ToResult;
 
-use crate::{Hkey, PsHkeyError};
+use crate::{Hkey, PsHkeyError, Store};
 
 use super::LongHkeyExpanded;
 
@@ -96,13 +96,13 @@ impl LongHkey {
     }
 
     #[inline]
-    pub fn expand<C, E, F>(&self, resolver: &F) -> Result<LongHkeyExpanded, E>
+    pub fn expand<C, E, S>(&self, store: &S) -> Result<LongHkeyExpanded, E>
     where
         C: DataChunk + Send,
         E: From<PsHkeyError> + Send,
-        F: Fn(&Hash) -> Result<C, E> + Sync,
+        S: Store<Chunk = C, Error = E> + Sync,
     {
-        let encrypted = resolver(&self.hash)?;
+        let encrypted = store.get(&self.hash)?;
 
         Self::expand_from_lhkey_encrypted_str(self, encrypted.data_ref())?.ok()
     }
