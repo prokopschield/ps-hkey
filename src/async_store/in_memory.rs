@@ -19,15 +19,17 @@ impl AsyncStore for InMemoryAsyncStore {
     type Error = InMemoryAsyncStoreError;
 
     fn get(&self, hash: &Hash) -> Promise<Self::Chunk, Self::Error> {
-        let result = self.store.get(hash);
-
-        Promise::new(async move { Ok(result?) })
+        match self.store.get(hash) {
+            Ok(chunk) => Promise::Resolved(chunk),
+            Err(err) => Promise::Rejected(err.into()),
+        }
     }
 
     fn put(&self, bytes: &[u8]) -> Promise<Hkey, Self::Error> {
-        let result = self.store.put(bytes);
-
-        Promise::new(async move { Ok(result?) })
+        match self.store.put(bytes) {
+            Ok(chunk) => Promise::Resolved(chunk),
+            Err(err) => Promise::Rejected(err.into()),
+        }
     }
 }
 
