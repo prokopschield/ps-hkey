@@ -171,11 +171,11 @@ impl Hkey {
         }
     }
 
-    pub fn resolve<C, E, S>(&self, store: &S) -> TResult<Resolved<C>, E>
+    pub fn resolve<'a, C, E, S>(&self, store: &'a S) -> TResult<Resolved<C>, E>
     where
         C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        S: Store<Chunk = C, Error = E> + Sync,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let chunk = match self {
             Self::Raw(raw) => raw.clone().into(),
@@ -198,15 +198,15 @@ impl Hkey {
         Ok(chunk)
     }
 
-    pub fn resolve_encrypted<C, E, S>(
+    pub fn resolve_encrypted<'a, C, E, S>(
         hash: &Hash,
         key: &Hash,
-        store: &S,
+        store: &'a S,
     ) -> TResult<SerializedDataChunk, E>
     where
         C: DataChunk,
         E: From<PsDataChunkError>,
-        S: Store<Chunk = C, Error = E>,
+        S: Store<Chunk<'a> = C, Error = E>,
     {
         let encrypted = store.get(hash)?;
         let decrypted = encrypted.decrypt(key.as_bytes())?;
@@ -214,22 +214,26 @@ impl Hkey {
         Ok(decrypted)
     }
 
-    pub fn resolve_list_ref<C, E, S>(hash: &Hash, key: &Hash, store: &S) -> TResult<Resolved<C>, E>
+    pub fn resolve_list_ref<'a, C, E, S>(
+        hash: &Hash,
+        key: &Hash,
+        store: &'a S,
+    ) -> TResult<Resolved<C>, E>
     where
         C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        S: Store<Chunk = C, Error = E> + Sync,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let list_bytes = Self::resolve_encrypted(hash, key, store)?;
 
         Self::from(list_bytes.data_ref()).resolve(store)
     }
 
-    pub fn resolve_list<C, E, S>(list: &[Self], store: &S) -> TResult<OwnedDataChunk, E>
+    pub fn resolve_list<'a, C, E, S>(list: &[Self], store: &'a S) -> TResult<OwnedDataChunk, E>
     where
         C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        S: Store<Chunk = C, Error = E> + Sync,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         // Parallel iterator over the list
         let hkey_iter = list.into_par_iter();
@@ -249,15 +253,15 @@ impl Hkey {
         Ok(OwnedDataChunk::from_data(data)?)
     }
 
-    pub fn resolve_list_slice<C, E, S>(
+    pub fn resolve_list_slice<'a, C, E, S>(
         list: &[Self],
-        store: &S,
+        store: &'a S,
         range: Range,
     ) -> TResult<Arc<[u8]>, E>
     where
         C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        S: Store<Chunk = C, Error = E> + Sync,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let mut to_skip = range.start;
         let mut to_take = range.end - range.start;
@@ -282,16 +286,16 @@ impl Hkey {
         Ok(buffer.into())
     }
 
-    pub fn resolve_list_ref_slice<C, E, S>(
+    pub fn resolve_list_ref_slice<'a, C, E, S>(
         hash: &Hash,
         key: &[u8],
-        store: &S,
+        store: &'a S,
         range: Range,
     ) -> TResult<Arc<[u8]>, E>
     where
         C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        S: Store<Chunk = C, Error = E> + Sync,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let chunk = store.get(hash)?;
         let decrypted = chunk.decrypt(key)?;
@@ -300,11 +304,11 @@ impl Hkey {
         hkey.resolve_slice(store, range)
     }
 
-    pub fn resolve_slice<C, E, S>(&self, store: &S, range: Range) -> TResult<Arc<[u8]>, E>
+    pub fn resolve_slice<'a, C, E, S>(&self, store: &'a S, range: Range) -> TResult<Arc<[u8]>, E>
     where
         C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        S: Store<Chunk = C, Error = E> + Sync,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         match self {
             Self::List(list) => Self::resolve_list_slice(list, store, range),
@@ -548,11 +552,11 @@ impl Hkey {
         }
     }
 
-    pub fn shrink_or_not<C, E, S>(&self, store: &S) -> TResult<Option<Self>, E>
+    pub fn shrink_or_not<'a, C, E, S>(&self, store: &S) -> TResult<Option<Self>, E>
     where
         C: DataChunk,
         E: From<PsHkeyError> + Send,
-        S: Store<Chunk = C, Error = E> + Sync,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         match self {
             Self::Raw(raw) => {
@@ -632,11 +636,11 @@ impl Hkey {
         .ok()
     }
 
-    pub fn shrink_into<C, E, S>(self, store: &S) -> TResult<Self, E>
+    pub fn shrink_into<'a, C, E, S>(self, store: &S) -> TResult<Self, E>
     where
         C: DataChunk,
         E: From<PsHkeyError> + Send,
-        S: Store<Chunk = C, Error = E> + Sync,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         (self.shrink_or_not(store)?).map_or_else(|| self.ok(), ps_util::ToResult::ok)
     }
@@ -651,11 +655,11 @@ impl Hkey {
         (self.shrink_or_not_async(store).await?).map_or_else(|| self.ok(), ps_util::ToResult::ok)
     }
 
-    pub fn shrink<C, E, S>(&self, store: &S) -> TResult<Self, E>
+    pub fn shrink<'a, C, E, S>(&self, store: &S) -> TResult<Self, E>
     where
         C: DataChunk,
         E: From<PsHkeyError> + Send,
-        S: Store<Chunk = C, Error = E> + Sync,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         (self.shrink_or_not(store)?).map_or_else(|| self.clone().ok(), ps_util::ToResult::ok)
     }
@@ -671,11 +675,11 @@ impl Hkey {
             .map_or_else(|| self.clone().ok(), ps_util::ToResult::ok)
     }
 
-    pub fn shrink_to_string<C, E, S>(&self, store: &S) -> TResult<String, E>
+    pub fn shrink_to_string<'a, C, E, S>(&self, store: &S) -> TResult<String, E>
     where
         C: DataChunk,
         E: From<PsHkeyError> + Send,
-        S: Store<Chunk = C, Error = E> + Sync,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         self.shrink(store)?.to_string().ok()
     }

@@ -17,16 +17,16 @@ use crate::{
 
 impl LongHkeyExpanded {
     /// only to be used with depth=0
-    pub fn update_flat<C, E, S>(
+    pub fn update_flat<'a, C, E, S>(
         &self,
-        store: &S,
+        store: &'a S,
         data: &[u8],
         range: &Range,
     ) -> Result<Arc<Self>, E>
     where
         C: DataChunk + Send,
         E: From<PsHkeyError> + From<PsDataChunkError> + Send,
-        S: Store<Chunk = C, Error = E> + Sync,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let length = data.len().min(range.end - range.start);
 
@@ -112,11 +112,16 @@ impl LongHkeyExpanded {
         Ok(Arc::from(lhkey))
     }
 
-    pub fn update<C, E, S>(&self, store: &S, data: &[u8], range: Range) -> Result<Arc<Self>, E>
+    pub fn update<'a, C, E, S>(
+        &self,
+        store: &'a S,
+        data: &[u8],
+        range: Range,
+    ) -> Result<Arc<Self>, E>
     where
         C: DataChunk + Send,
         E: From<PsHkeyError> + From<PsDataChunkError> + Send,
-        S: Store<Chunk = C, Error = E> + Sync,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let range = range.start..range.end.min(range.start + data.len());
         let length = range.end.max(self.size);

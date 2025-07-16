@@ -36,10 +36,10 @@ impl<T> From<PoisonError<T>> for InMemoryStoreError {
 }
 
 impl Store for InMemoryStore {
-    type Chunk = OwnedDataChunk;
+    type Chunk<'c> = OwnedDataChunk;
     type Error = InMemoryStoreError;
 
-    fn get(&self, hash: &Hash) -> Result<Self::Chunk, Self::Error> {
+    fn get<'a>(&'a self, hash: &Hash) -> Result<Self::Chunk<'a>, Self::Error> {
         self.hashmap
             .lock()?
             .get(hash)

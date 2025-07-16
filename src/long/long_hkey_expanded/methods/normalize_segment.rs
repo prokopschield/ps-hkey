@@ -11,16 +11,16 @@ use crate::{
 use super::update::helpers::{calculate_depth, calculate_segment_length};
 
 impl LongHkeyExpanded {
-    pub fn normalize_segment<C, E, S>(
+    pub fn normalize_segment<'a, C, E, S>(
         &self,
-        store: &S,
+        store: &'a S,
         depth: u32,
         range: Range,
     ) -> Result<Arc<Self>, E>
     where
         C: DataChunk + Send,
         E: From<PsHkeyError> + From<PsDataChunkError> + Send,
-        S: Store<Chunk = C, Error = E> + Sync,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         if range.end == range.start {
             return Ok(Arc::from(Self::default()));

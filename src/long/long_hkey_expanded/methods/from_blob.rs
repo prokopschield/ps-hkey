@@ -18,11 +18,11 @@ use crate::{
 };
 
 impl LongHkeyExpanded {
-    pub fn from_blob<C, E, S>(store: &S, data: &[u8]) -> Result<Self, E>
+    pub fn from_blob<'a, C, E, S>(store: &S, data: &[u8]) -> Result<Self, E>
     where
         C: DataChunk,
         E: From<PsHkeyError> + Send,
-        S: Store<Chunk = C, Error = E> + Sync,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let depth = calculate_depth(0, data.len());
 

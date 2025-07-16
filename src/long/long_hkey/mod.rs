@@ -97,11 +97,11 @@ impl LongHkey {
     }
 
     #[inline]
-    pub fn expand<C, E, S>(&self, store: &S) -> Result<LongHkeyExpanded, E>
+    pub fn expand<'a, C, E, S>(&self, store: &'a S) -> Result<LongHkeyExpanded, E>
     where
         C: DataChunk,
         E: From<PsHkeyError> + Send,
-        S: Store<Chunk = C, Error = E> + Sync,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let encrypted = store.get(&self.hash)?;
 

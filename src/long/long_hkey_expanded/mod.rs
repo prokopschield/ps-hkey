@@ -29,20 +29,20 @@ impl LongHkeyExpanded {
         Self { depth, size, parts }
     }
 
-    pub fn resolve<C, E, S>(&self, store: &S) -> Result<Arc<[u8]>, E>
+    pub fn resolve<'a, C, E, S>(&self, store: &'a S) -> Result<Arc<[u8]>, E>
     where
         C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        S: Store<Chunk = C, Error = E> + Sync,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         self.resolve_slice(store, 0..self.size)
     }
 
-    pub fn resolve_slice<C, E, S>(&self, store: &S, range: Range) -> Result<Arc<[u8]>, E>
+    pub fn resolve_slice<'a, C, E, S>(&self, store: &'a S, range: Range) -> Result<Arc<[u8]>, E>
     where
         C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        S: Store<Chunk = C, Error = E> + Sync,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         // Collect the data chunks in parallel
         let result: Result<Vec<Arc<[u8]>>, E> = self

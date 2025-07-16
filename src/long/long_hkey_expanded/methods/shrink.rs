@@ -4,11 +4,11 @@ use crate::{long::LongHkeyExpanded, Hkey, PsHkeyError, Store};
 
 impl LongHkeyExpanded {
     /// transforms this [`LongHkey`] into a [`Hkey::ListRef`]
-    pub fn shrink<C, E, S>(&self, store: &S) -> Result<Hkey, E>
+    pub fn shrink<'a, C, E, S>(&self, store: &S) -> Result<Hkey, E>
     where
         C: DataChunk,
         E: From<PsHkeyError> + Send,
-        S: Store<Chunk = C, Error = E> + Sync,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         Ok(self.store(store)?.into())
     }
