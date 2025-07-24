@@ -347,7 +347,7 @@ impl Hkey {
         Box::pin(async move { self.resolve_async(store).await })
     }
 
-    pub async fn resolve_async<'lt, C, E, Es, S>(&self, store: &S) -> TResult<Resolved<C>, E>
+    pub async fn resolve_async<C, E, Es, S>(&self, store: &S) -> TResult<Resolved<C>, E>
     where
         C: DataChunk + Send + Unpin,
         E: From<Es> + From<PsDataChunkError> + From<PsHkeyError> + Send,
@@ -377,7 +377,7 @@ impl Hkey {
         Ok(chunk)
     }
 
-    pub async fn resolve_encrypted_async<'lt, C, E, Es, S>(
+    pub async fn resolve_encrypted_async<C, E, Es, S>(
         hash: &Hash,
         key: &Hash,
         store: &S,
@@ -394,7 +394,7 @@ impl Hkey {
         Ok(decrypted)
     }
 
-    pub async fn resolve_list_ref_async<'lt, C, E, Es, S>(
+    pub async fn resolve_list_ref_async<C, E, Es, S>(
         hash: &Hash,
         key: &Hash,
         store: &S,
@@ -412,7 +412,7 @@ impl Hkey {
             .await
     }
 
-    pub async fn resolve_list_async<'k, 'lt, C, E, Es, S>(
+    pub async fn resolve_list_async<'k, C, E, Es, S>(
         list: &'k [Self],
         store: &S,
     ) -> TResult<OwnedDataChunk, E>
@@ -444,7 +444,7 @@ impl Hkey {
         Ok(OwnedDataChunk::from_data(data)?)
     }
 
-    pub async fn resolve_list_ref_slice_async<'lt, C, E, Es, S>(
+    pub async fn resolve_list_ref_slice_async<C, E, Es, S>(
         hash: &Hash,
         key: &[u8],
         store: &S,
@@ -463,8 +463,8 @@ impl Hkey {
         hkey.resolve_slice_async_box(store, range).await
     }
 
-    pub async fn resolve_list_slice_async<'k, 'lt, C, E, Es, S>(
-        list: &'k [Self],
+    pub async fn resolve_list_slice_async<C, E, Es, S>(
+        list: &[Self],
         store: &S,
         range: Range,
     ) -> TResult<Arc<[u8]>, E>
@@ -511,7 +511,7 @@ impl Hkey {
         Box::pin(async move { self.resolve_slice_async(store, range).await })
     }
 
-    pub async fn resolve_slice_async<'lt, C, E, Es, S>(
+    pub async fn resolve_slice_async<C, E, Es, S>(
         &self,
         store: &S,
         range: Range,
@@ -645,7 +645,7 @@ impl Hkey {
         (self.shrink_or_not(store)?).map_or_else(|| self.ok(), ps_util::ToResult::ok)
     }
 
-    pub async fn shrink_into_async<'lt, C, E, Es, S>(self, store: &S) -> TResult<Self, E>
+    pub async fn shrink_into_async<C, E, Es, S>(self, store: &S) -> TResult<Self, E>
     where
         C: DataChunk + Send + Unpin,
         E: From<Es> + From<PsHkeyError> + Send,
@@ -684,7 +684,7 @@ impl Hkey {
         self.shrink(store)?.to_string().ok()
     }
 
-    pub async fn shrink_to_string_async<'lt, C, E, Es, S>(&self, store: &S) -> TResult<String, E>
+    pub async fn shrink_to_string_async<C, E, Es, S>(&self, store: &S) -> TResult<String, E>
     where
         C: DataChunk + Send + Unpin,
         E: From<Es> + From<PsHkeyError> + Send,

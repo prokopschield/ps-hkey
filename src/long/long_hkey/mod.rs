@@ -109,7 +109,7 @@ impl LongHkey {
     }
 
     #[inline]
-    pub async fn expand_async<'lt, C, E, Es, S>(&self, resolver: &S) -> Result<LongHkeyExpanded, E>
+    pub async fn expand_async<C, E, Es, S>(&self, resolver: &S) -> Result<LongHkeyExpanded, E>
     where
         C: DataChunk + Send + Unpin,
         E: From<Es> + From<PsHkeyError> + Send,
