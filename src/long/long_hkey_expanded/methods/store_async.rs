@@ -1,4 +1,4 @@
-use ps_datachunk::DataChunk;
+use ps_datachunk::{Bytes, DataChunk};
 use ps_promise::PromiseRejection;
 use ps_util::ToResult;
 
@@ -11,7 +11,7 @@ impl LongHkeyExpanded {
         E: From<PsHkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
-        match store.put(self.to_string().as_bytes()).await? {
+        match store.put(Bytes::from_owner(self.to_string())).await? {
             Hkey::Encrypted(hash, key) => LongHkey::from_hash_and_key(hash, key),
             _ => Err(PsHkeyError::StorageError)?,
         }

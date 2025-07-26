@@ -16,6 +16,7 @@ pub use error::PsHkeyError;
 pub use error::Result;
 pub use long::LongHkey;
 pub use long::LongHkeyExpanded;
+use ps_datachunk::Bytes;
 use ps_datachunk::DataChunk;
 use ps_datachunk::OwnedDataChunk;
 use ps_datachunk::PsDataChunkError;
@@ -592,7 +593,12 @@ impl Hkey {
                 if raw.len() <= MAX_SIZE_RAW {
                     None
                 } else {
-                    store.put(raw).await?.shrink_into_async(store).await?.some()
+                    store
+                        .put(Bytes::from_owner(raw.clone()))
+                        .await?
+                        .shrink_into_async(store)
+                        .await?
+                        .some()
                 }
             }
             Self::Base64(base64) => {
@@ -600,7 +606,7 @@ impl Hkey {
                     None
                 } else {
                     store
-                        .put(&ps_base64::decode(base64.as_bytes()))
+                        .put(Bytes::from_owner(ps_base64::decode(base64.as_bytes())))
                         .await?
                         .shrink_into_async(store)
                         .await?
@@ -608,7 +614,9 @@ impl Hkey {
                 }
             }
             Self::List(list) => {
-                let stored = store.put(Self::format_list(list).as_bytes()).await?;
+                let stored = store
+                    .put(Bytes::from_owner(Self::format_list(list)))
+                    .await?;
 
                 match stored.encrypted_into_list_ref() {
                     Ok(hkey) => Some(hkey),
@@ -616,7 +624,7 @@ impl Hkey {
                 }
             }
             Self::LongHkeyExpanded(lhkey) => {
-                match store.put(format!("{lhkey}").as_bytes()).await? {
+                match store.put(Bytes::from_owner(lhkey.to_string())).await? {
                     Self::Encrypted(hash, key) => Self::ListRef(hash, key).some(),
                     _ => Err(PsHkeyError::StorageError)?,
                 }

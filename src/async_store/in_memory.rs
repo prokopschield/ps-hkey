@@ -1,10 +1,10 @@
-use ps_datachunk::OwnedDataChunk;
+use ps_datachunk::{DataChunk, OwnedDataChunk, PsDataChunkError};
 use ps_hash::Hash;
 use ps_promise::{Promise, PromiseRejection};
 
 use crate::{
     store::in_memory::{InMemoryStore, InMemoryStoreError},
-    Hkey, Store,
+    PsHkeyError, Store,
 };
 
 use super::AsyncStore;
@@ -25,8 +25,8 @@ impl AsyncStore for InMemoryAsyncStore {
         }
     }
 
-    fn put(&self, bytes: &[u8]) -> Promise<Hkey, Self::Error> {
-        match self.store.put(bytes) {
+    fn put_encrypted<C: DataChunk>(&self, chunk: C) -> Promise<(), Self::Error> {
+        match self.store.put_encrypted(chunk) {
             Ok(chunk) => Promise::Resolved(chunk),
             Err(err) => Promise::Rejected(err.into()),
         }
@@ -35,6 +35,10 @@ impl AsyncStore for InMemoryAsyncStore {
 
 #[derive(thiserror::Error, Debug)]
 pub enum InMemoryAsyncStoreError {
+    #[error(transparent)]
+    DataChunk(#[from] PsDataChunkError),
+    #[error(transparent)]
+    Hkey(#[from] PsHkeyError),
     #[error("The Promise was consumed more than once.")]
     PromiseConsumedAlready,
     #[error(transparent)]

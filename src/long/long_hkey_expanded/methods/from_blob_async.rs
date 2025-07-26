@@ -1,6 +1,6 @@
 use std::{future::Future, pin::Pin, sync::Arc};
 
-use ps_datachunk::DataChunk;
+use ps_datachunk::{Bytes, DataChunk};
 use ps_promise::PromiseRejection;
 
 use crate::{
@@ -58,7 +58,7 @@ impl LongHkeyExpanded {
             for (index, chunk) in data.chunks(LHKEY_SEGMENT_MAX_LENGTH).enumerate() {
                 let start = index * LHKEY_SEGMENT_MAX_LENGTH;
                 let end = start + chunk.len();
-                let hkey = store.put(chunk).await?;
+                let hkey = store.put(Bytes::copy_from_slice(chunk)).await?;
 
                 chunks.push((start..end, hkey));
             }
