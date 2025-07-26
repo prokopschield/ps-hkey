@@ -37,11 +37,7 @@ mod tests {
             }
 
             for test in (cutoff + 1)..(cutoff + 8) {
-                assert_eq!(
-                    calculate_depth(0, test),
-                    depth + 1,
-                    "failed over={test:x}"
-                );
+                assert_eq!(calculate_depth(0, test), depth + 1, "failed over={test:x}");
             }
         }
     }
