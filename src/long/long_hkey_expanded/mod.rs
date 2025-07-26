@@ -77,26 +77,24 @@ impl LongHkeyExpanded {
         Ok(combined_result.into())
     }
 
-    pub async fn resolve_async<C, E, Es, S>(&self, store: &S) -> Result<Arc<[u8]>, E>
+    pub async fn resolve_async<C, E, S>(&self, store: &S) -> Result<Arc<[u8]>, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<Es> + From<PsDataChunkError> + From<PsHkeyError> + Send,
-        Es: Into<E> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = Es> + Sync + ?Sized,
+        E: From<PsDataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
+        S: AsyncStore<Chunk = C, Error = E> + Sync + ?Sized,
     {
         self.resolve_slice_async(store, 0..self.size).await
     }
 
-    pub async fn resolve_slice_async<C, E, Es, S>(
+    pub async fn resolve_slice_async<C, E, S>(
         &self,
         store: &S,
         range: Range,
     ) -> Result<Arc<[u8]>, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<Es> + From<PsDataChunkError> + From<PsHkeyError> + Send,
-        Es: Into<E> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = Es> + Sync + ?Sized,
+        E: From<PsDataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
+        S: AsyncStore<Chunk = C, Error = E> + Sync + ?Sized,
     {
         let futures = self
             .parts

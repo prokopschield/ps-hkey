@@ -109,12 +109,11 @@ impl LongHkey {
     }
 
     #[inline]
-    pub async fn expand_async<C, E, Es, S>(&self, resolver: &S) -> Result<LongHkeyExpanded, E>
+    pub async fn expand_async<C, E, S>(&self, resolver: &S) -> Result<LongHkeyExpanded, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<Es> + From<PsHkeyError> + Send,
-        Es: Into<E> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = Es> + Sync + ?Sized,
+        E: From<PsHkeyError> + PromiseRejection + Send,
+        S: AsyncStore<Chunk = C, Error = E> + Sync + ?Sized,
     {
         let future = resolver.get(&self.hash);
         let chunk = future.await?;

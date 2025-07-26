@@ -15,25 +15,23 @@ use crate::{
 };
 
 impl LongHkeyExpanded {
-    pub fn from_blob_async_box<'a, C, E, Es, S>(
+    pub fn from_blob_async_box<'a, C, E, S>(
         store: &'a S,
         data: &'a [u8],
     ) -> Pin<Box<dyn Future<Output = Result<Self, E>> + Send + Sync + 'a>>
     where
         C: DataChunk + Unpin,
-        E: From<Es> + From<PsHkeyError> + Send + Sync,
-        Es: Into<E> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = Es> + Sync + ?Sized,
+        E: From<PsHkeyError> + PromiseRejection + Send,
+        S: AsyncStore<Chunk = C, Error = E> + Sync + ?Sized,
     {
         Box::pin(async move { Self::from_blob_async(store, data).await })
     }
 
-    pub async fn from_blob_async<C, E, Es, S>(store: &S, data: &[u8]) -> Result<Self, E>
+    pub async fn from_blob_async<C, E, S>(store: &S, data: &[u8]) -> Result<Self, E>
     where
         C: DataChunk + Unpin,
-        E: From<Es> + From<PsHkeyError> + Send + Sync,
-        Es: Into<E> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = Es> + Sync + ?Sized,
+        E: From<PsHkeyError> + PromiseRejection + Send,
+        S: AsyncStore<Chunk = C, Error = E> + Sync + ?Sized,
     {
         let depth = calculate_depth(0, data.len());
 
