@@ -28,7 +28,7 @@ mod tests {
 
         let orig_data = [18u8; 10000];
 
-        assert_eq!(store.put(&orig_data)?.to_string(), "EdU0ij2fjyx5sgfyFmASwcFrNBi_2vGwMX9lJKIjdIhKKAItc6lXhvQ2f_FPaXlx~_AeUWOwg56a32S7BGedG3247YEHGzZMexcaZsWX6GzU7BrZpjXy7mt7HhK0ak335");
+        assert_eq!(store.put(&orig_data)?.to_string(), "LS553sivz65x2k10GgNhgveFYeBg2aro1BtyDBzSjRlWUAZHzuZlF55bArA0hCYtrqdi11LESmbilfMKsqy~0Lq4uCbxv6S7a4cCT2ULyZ1vqAU9QGYD2pU6uX4x7edGe");
 
         let lhkey = LongHkeyExpanded::default().update(&store, &orig_data, 0..orig_data.len())?;
 

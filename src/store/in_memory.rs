@@ -3,10 +3,10 @@ use std::{
     sync::{Arc, Mutex, PoisonError},
 };
 
-use ps_datachunk::{BorrowedDataChunk, DataChunk, OwnedDataChunk, PsDataChunkError};
+use ps_datachunk::{DataChunk, OwnedDataChunk, PsDataChunkError};
 use ps_hash::{Hash, HashError};
 
-use crate::{Hkey, PsHkeyError};
+use crate::PsHkeyError;
 
 use super::Store;
 
@@ -47,14 +47,12 @@ impl Store for InMemoryStore {
             .ok_or(InMemoryStoreError::NotFound)
     }
 
-    fn put(&self, bytes: &[u8]) -> Result<Hkey, Self::Error> {
-        let chunk = BorrowedDataChunk::from_data(bytes)?;
-        let encrypted = chunk.encrypt()?;
-        let hash = *encrypted.hash_ref();
-        let hkey = Hkey::Encrypted(encrypted.hash(), encrypted.key());
+    fn put_encrypted<C: DataChunk>(&self, chunk: &C) -> Result<(), Self::Error> {
+        let chunk = OwnedDataChunk::from_data_and_hash(Arc::from(chunk.data_ref()), chunk.hash());
+        let hash = *chunk.hash_ref();
 
-        self.hashmap.lock()?.insert(hash, encrypted.into_owned());
+        self.hashmap.lock()?.insert(hash, chunk);
 
-        Ok(hkey)
+        Ok(())
     }
 }
