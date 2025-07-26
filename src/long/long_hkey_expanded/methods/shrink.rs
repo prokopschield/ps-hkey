@@ -34,7 +34,7 @@ mod tests {
 
         let hkey = lhkey.shrink(&store)?;
 
-        assert_eq!(hkey.to_string(), "LGD4YPKEIeEu_aMyTKPfqE7BQ_i0sM~NfoRNON8EV0fSEAdsnv_niR0MHg0dzsgQHqdi11LESmbilfMKsqy~0Lq4uCbxv6S7a4cCT2ULyZ1vqAU9QGYD2pU6uX4x7edGe");
+        assert_eq!(hkey.to_string(), "LS553sivz65x2k10GgNhgveFYeBg2aro1BtyDBzSjRlWUAZHzuZlF55bArA0hCYtrqdi11LESmbilfMKsqy~0Lq4uCbxv6S7a4cCT2ULyZ1vqAU9QGYD2pU6uX4x7edGe");
 
         let data = hkey.resolve_slice(&store, 0..10000)?;
 
