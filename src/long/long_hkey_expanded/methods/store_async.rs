@@ -9,7 +9,7 @@ impl LongHkeyExpanded {
     where
         C: DataChunk + Unpin,
         E: From<PsHkeyError> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = E> + Sync + ?Sized,
+        S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         match store.put(self.to_string().as_bytes()).await? {
             Hkey::Encrypted(hash, key) => LongHkey::from_hash_and_key(hash, key),

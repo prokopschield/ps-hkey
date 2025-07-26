@@ -9,7 +9,7 @@ impl LongHkeyExpanded {
     where
         C: DataChunk + Unpin,
         E: From<PsHkeyError> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = E> + Sync + ?Sized,
+        S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         Ok(self.store_async(store).await?.into())
     }

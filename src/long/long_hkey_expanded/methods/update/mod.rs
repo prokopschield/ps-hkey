@@ -26,7 +26,7 @@ impl LongHkeyExpanded {
     where
         C: DataChunk + Send,
         E: From<PsHkeyError> + From<PsDataChunkError> + Send,
-        S: Store<Chunk<'a> = C, Error = E> + Sync + ?Sized + 'a,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let length = data.len().min(range.end - range.start);
 
@@ -121,7 +121,7 @@ impl LongHkeyExpanded {
     where
         C: DataChunk + Send,
         E: From<PsHkeyError> + From<PsDataChunkError> + Send,
-        S: Store<Chunk<'a> = C, Error = E> + Sync + ?Sized + 'a,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let range = range.start..range.end.min(range.start + data.len());
         let length = range.end.max(self.size);

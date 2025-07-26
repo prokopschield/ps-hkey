@@ -11,7 +11,7 @@ use crate::{
 
 pub trait Store
 where
-    Self: Sync,
+    Self: Sized + Sync,
 {
     type Chunk<'c>: DataChunk
     where

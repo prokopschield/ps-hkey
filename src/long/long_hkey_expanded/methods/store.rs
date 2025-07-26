@@ -8,7 +8,7 @@ impl LongHkeyExpanded {
     where
         C: DataChunk,
         E: From<PsHkeyError> + Send,
-        S: Store<Chunk<'a> = C, Error = E> + Sync + ?Sized + 'a,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         match store.put(self.to_string().as_bytes())? {
             Hkey::Encrypted(hash, key) => LongHkey::from_hash_and_key(hash, key),

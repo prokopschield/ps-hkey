@@ -101,7 +101,7 @@ impl LongHkey {
     where
         C: DataChunk,
         E: From<PsHkeyError> + Send,
-        S: Store<Chunk<'a> = C, Error = E> + Sync + ?Sized + 'a,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let encrypted = store.get(&self.hash)?;
 
@@ -113,7 +113,7 @@ impl LongHkey {
     where
         C: DataChunk + Send + Unpin,
         E: From<PsHkeyError> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = E> + Sync + ?Sized,
+        S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         let future = resolver.get(&self.hash);
         let chunk = future.await?;

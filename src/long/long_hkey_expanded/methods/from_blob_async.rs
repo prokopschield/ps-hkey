@@ -22,7 +22,7 @@ impl LongHkeyExpanded {
     where
         C: DataChunk + Unpin,
         E: From<PsHkeyError> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = E> + Sync + ?Sized,
+        S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         Box::pin(async move { Self::from_blob_async(store, data).await })
     }
@@ -31,7 +31,7 @@ impl LongHkeyExpanded {
     where
         C: DataChunk + Unpin,
         E: From<PsHkeyError> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = E> + Sync + ?Sized,
+        S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         let depth = calculate_depth(0, data.len());
 
