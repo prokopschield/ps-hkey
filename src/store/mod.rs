@@ -21,24 +21,26 @@ where
 
     fn get<'a>(&'a self, hash: &Hash) -> Result<Self::Chunk<'a>, Self::Error>;
 
-    fn put_encrypted<C: DataChunk>(&self, data: &C) -> Result<(), Self::Error>;
+    fn put_encrypted<C: DataChunk>(&self, chunk: C) -> Result<(), Self::Error>;
 
     fn put(&self, data: &[u8]) -> Result<Hkey, Self::Error> {
         if data.len() <= MAX_SIZE_RAW {
             return Ok(Hkey::Raw(data.into()));
         }
 
-        let chunk = BorrowedDataChunk::from_data(data)?;
-
         if data.len() <= MAX_ENCRYPTED_SIZE && validate(data) {
-            self.put_encrypted(&chunk)?;
+            let chunk = BorrowedDataChunk::from_data(data)?;
+            let hash = chunk.hash();
 
-            Ok(Hkey::Direct(chunk.hash()))
+            self.put_encrypted(chunk)?;
+
+            Ok(Hkey::Direct(hash))
         } else if data.len() <= MAX_DECRYPTED_SIZE {
+            let chunk = BorrowedDataChunk::from_data(data)?;
             let encrypted = chunk.encrypt()?;
             let hkey = Hkey::Encrypted(encrypted.hash(), encrypted.key());
 
-            self.put_encrypted(&encrypted)?;
+            self.put_encrypted(encrypted)?;
 
             Ok(hkey)
         } else {
