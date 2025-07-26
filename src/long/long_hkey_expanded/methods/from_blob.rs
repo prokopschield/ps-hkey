@@ -22,7 +22,7 @@ impl LongHkeyExpanded {
     where
         C: DataChunk,
         E: From<PsHkeyError> + Send,
-        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + ?Sized + 'a,
     {
         let depth = calculate_depth(0, data.len());
 

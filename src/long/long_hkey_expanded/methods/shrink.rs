@@ -8,7 +8,7 @@ impl LongHkeyExpanded {
     where
         C: DataChunk,
         E: From<PsHkeyError> + Send,
-        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + ?Sized + 'a,
     {
         Ok(self.store(store)?.into())
     }

@@ -33,7 +33,7 @@ impl LongHkeyExpanded {
     where
         C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + ?Sized + 'a,
     {
         self.resolve_slice(store, 0..self.size)
     }
@@ -42,7 +42,7 @@ impl LongHkeyExpanded {
     where
         C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
-        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + ?Sized + 'a,
     {
         // Collect the data chunks in parallel
         let result: Result<Vec<Arc<[u8]>>, E> = self
@@ -82,7 +82,7 @@ impl LongHkeyExpanded {
         C: DataChunk + Send + Unpin,
         E: From<Es> + From<PsDataChunkError> + From<PsHkeyError> + Send,
         Es: Into<E> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = Es> + Sync,
+        S: AsyncStore<Chunk = C, Error = Es> + Sync + ?Sized,
     {
         self.resolve_slice_async(store, 0..self.size).await
     }
@@ -96,7 +96,7 @@ impl LongHkeyExpanded {
         C: DataChunk + Send + Unpin,
         E: From<Es> + From<PsDataChunkError> + From<PsHkeyError> + Send,
         Es: Into<E> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = Es> + Sync,
+        S: AsyncStore<Chunk = C, Error = Es> + Sync + ?Sized,
     {
         let futures = self
             .parts

@@ -10,7 +10,7 @@ impl LongHkeyExpanded {
         C: DataChunk + Unpin,
         E: From<Es> + From<PsHkeyError> + Send,
         Es: Into<E> + PromiseRejection + Send + Unpin,
-        S: AsyncStore<Chunk = C, Error = Es> + Sync,
+        S: AsyncStore<Chunk = C, Error = Es> + Sync + ?Sized,
     {
         match store.put(self.to_string().as_bytes()).await? {
             Hkey::Encrypted(hash, key) => LongHkey::from_hash_and_key(hash, key),

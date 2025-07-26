@@ -20,7 +20,7 @@ impl LongHkeyExpanded {
     where
         C: DataChunk + Send,
         E: From<PsHkeyError> + From<PsDataChunkError> + Send,
-        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + ?Sized + 'a,
     {
         if range.end == range.start {
             return Ok(Arc::from(Self::default()));
