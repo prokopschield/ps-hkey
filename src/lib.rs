@@ -30,6 +30,11 @@ use std::result::Result as TResult;
 use std::sync::Arc;
 pub use store::Store;
 
+pub use crate::async_store::in_memory::InMemoryAsyncStore;
+pub use crate::async_store::in_memory::InMemoryAsyncStoreError;
+pub use crate::store::in_memory::InMemoryStore;
+pub use crate::store::in_memory::InMemoryStoreError;
+
 pub type Range = std::ops::Range<usize>;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
