@@ -29,7 +29,7 @@ impl LongHkeyExpanded {
         Self { depth, size, parts }
     }
 
-    pub fn resolve<'a, C, E, S>(&self, store: &'a S) -> Result<Arc<[u8]>, E>
+    pub fn resolve<'a, C, E, S>(&self, store: &'a S) -> Result<Vec<u8>, E>
     where
         C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
@@ -38,14 +38,14 @@ impl LongHkeyExpanded {
         self.resolve_slice(store, 0..self.size)
     }
 
-    pub fn resolve_slice<'a, C, E, S>(&self, store: &'a S, range: Range) -> Result<Arc<[u8]>, E>
+    pub fn resolve_slice<'a, C, E, S>(&self, store: &'a S, range: Range) -> Result<Vec<u8>, E>
     where
         C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         // Collect the data chunks in parallel
-        let result: Result<Vec<Arc<[u8]>>, E> = self
+        let result: Result<Vec<Vec<u8>>, E> = self
             .parts
             .par_iter()
             .filter_map(|(part_range, hkey)| {
@@ -74,10 +74,10 @@ impl LongHkeyExpanded {
         }
 
         // Convert the result vector into an Arc<[u8]>
-        Ok(combined_result.into())
+        Ok(combined_result)
     }
 
-    pub async fn resolve_async<C, E, S>(&self, store: &S) -> Result<Arc<[u8]>, E>
+    pub async fn resolve_async<C, E, S>(&self, store: &S) -> Result<Vec<u8>, E>
     where
         C: DataChunk + Send + Unpin,
         E: From<PsDataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
@@ -86,11 +86,7 @@ impl LongHkeyExpanded {
         self.resolve_slice_async(store, 0..self.size).await
     }
 
-    pub async fn resolve_slice_async<C, E, S>(
-        &self,
-        store: &S,
-        range: Range,
-    ) -> Result<Arc<[u8]>, E>
+    pub async fn resolve_slice_async<C, E, S>(&self, store: &S, range: Range) -> Result<Vec<u8>, E>
     where
         C: DataChunk + Send + Unpin,
         E: From<PsDataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
@@ -129,7 +125,7 @@ impl LongHkeyExpanded {
         }
 
         // Convert the result vector into an Arc<[u8]>
-        Ok(combined_result.into())
+        Ok(combined_result)
     }
 }
 

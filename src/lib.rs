@@ -182,9 +182,7 @@ impl Hkey {
     {
         let chunk = match self {
             Self::Raw(raw) => raw.clone().into(),
-            Self::Base64(base64) => {
-                OwnedDataChunk::from_data(ps_base64::decode(base64.as_bytes()))?.into()
-            }
+            Self::Base64(base64) => ps_base64::decode(base64.as_bytes()).try_into()?,
             Self::Direct(hash) => Resolved::Custom(store.get(hash)?),
             Self::Encrypted(hash, key) => Self::resolve_encrypted(hash, key, store)?.into(),
             Self::ListRef(hash, key) => Self::resolve_list_ref(hash, key, store)?,
@@ -193,9 +191,9 @@ impl Hkey {
                 let expanded = lhkey.expand(store)?;
                 let data = expanded.resolve(store)?;
 
-                data.into()
+                data.try_into()?
             }
-            Self::LongHkeyExpanded(lhkey) => lhkey.resolve(store)?.into(),
+            Self::LongHkeyExpanded(lhkey) => lhkey.resolve(store)?.try_into()?,
         };
 
         Ok(chunk)
@@ -260,7 +258,7 @@ impl Hkey {
         list: &[Self],
         store: &'a S,
         range: Range,
-    ) -> TResult<Arc<[u8]>, E>
+    ) -> TResult<Vec<u8>, E>
     where
         C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
@@ -286,7 +284,7 @@ impl Hkey {
             }
         }
 
-        Ok(buffer.into())
+        Ok(buffer)
     }
 
     pub fn resolve_list_ref_slice<'a, C, E, S>(
@@ -294,7 +292,7 @@ impl Hkey {
         key: &[u8],
         store: &'a S,
         range: Range,
-    ) -> TResult<Arc<[u8]>, E>
+    ) -> TResult<Vec<u8>, E>
     where
         C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
@@ -307,7 +305,7 @@ impl Hkey {
         hkey.resolve_slice(store, range)
     }
 
-    pub fn resolve_slice<'a, C, E, S>(&self, store: &'a S, range: Range) -> TResult<Arc<[u8]>, E>
+    pub fn resolve_slice<'a, C, E, S>(&self, store: &'a S, range: Range) -> TResult<Vec<u8>, E>
     where
         C: DataChunk + Send,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
@@ -329,7 +327,7 @@ impl Hkey {
                 let bytes = chunk.data_ref();
 
                 if let Some(slice) = bytes.get(range) {
-                    return Ok(Arc::from(slice));
+                    return Ok(slice.to_vec());
                 }
 
                 PsHkeyError::RangeError(bytes.len()).err()?
@@ -357,9 +355,7 @@ impl Hkey {
     {
         let chunk = match self {
             Self::Raw(raw) => raw.clone().into(),
-            Self::Base64(base64) => {
-                OwnedDataChunk::from_data(ps_base64::decode(base64.as_bytes()))?.into()
-            }
+            Self::Base64(base64) => ps_base64::decode(base64.as_bytes()).try_into()?,
             Self::Direct(hash) => Resolved::Custom(store.get(hash).await?),
             Self::Encrypted(hash, key) => Self::resolve_encrypted_async(hash, key, store)
                 .await?
@@ -371,8 +367,8 @@ impl Hkey {
                 .await?
                 .resolve_async(store)
                 .await?
-                .into(),
-            Self::LongHkeyExpanded(lhkey) => lhkey.resolve_async(store).await?.into(),
+                .try_into()?,
+            Self::LongHkeyExpanded(lhkey) => lhkey.resolve_async(store).await?.try_into()?,
         };
 
         Ok(chunk)
@@ -447,7 +443,7 @@ impl Hkey {
         key: &[u8],
         store: &S,
         range: Range,
-    ) -> TResult<Arc<[u8]>, E>
+    ) -> TResult<Vec<u8>, E>
     where
         C: DataChunk + Send + Unpin,
         E: From<PsDataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
@@ -464,7 +460,7 @@ impl Hkey {
         list: &[Self],
         store: &S,
         range: Range,
-    ) -> TResult<Arc<[u8]>, E>
+    ) -> TResult<Vec<u8>, E>
     where
         C: DataChunk + Send + Unpin,
         E: From<PsDataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
@@ -490,14 +486,14 @@ impl Hkey {
             }
         }
 
-        Ok(buffer.into())
+        Ok(buffer)
     }
 
     pub fn resolve_slice_async_box<'a, C, E, S>(
         &'a self,
         store: &'a S,
         range: Range,
-    ) -> Pin<Box<dyn Future<Output = TResult<Arc<[u8]>, E>> + Send + 'a>>
+    ) -> Pin<Box<dyn Future<Output = TResult<Vec<u8>, E>> + Send + 'a>>
     where
         C: DataChunk + Send + Unpin,
         E: From<PsDataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
@@ -506,11 +502,7 @@ impl Hkey {
         Box::pin(async move { self.resolve_slice_async(store, range).await })
     }
 
-    pub async fn resolve_slice_async<C, E, S>(
-        &self,
-        store: &S,
-        range: Range,
-    ) -> TResult<Arc<[u8]>, E>
+    pub async fn resolve_slice_async<C, E, S>(&self, store: &S, range: Range) -> TResult<Vec<u8>, E>
     where
         C: DataChunk + Send + Unpin,
         E: From<PsDataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
@@ -538,7 +530,7 @@ impl Hkey {
                 let bytes = chunk.data_ref();
 
                 if let Some(slice) = bytes.get(range) {
-                    return Ok(Arc::from(slice));
+                    return Ok(slice.to_vec());
                 }
 
                 PsHkeyError::RangeError(bytes.len()).err()?

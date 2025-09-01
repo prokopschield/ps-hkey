@@ -55,3 +55,11 @@ impl<C: DataChunk> From<SerializedDataChunk> for Resolved<C> {
         Self::Serialized(value)
     }
 }
+
+impl<C: DataChunk> TryFrom<Vec<u8>> for Resolved<C> {
+    type Error = PsDataChunkError;
+
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+        Ok(Self::Owned(OwnedDataChunk::from_data(value)?))
+    }
+}
