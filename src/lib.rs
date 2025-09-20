@@ -5,6 +5,7 @@ mod async_store;
 mod constants;
 mod error;
 mod long;
+mod methods;
 mod resolved;
 mod store;
 pub use async_store::AsyncStore;
@@ -121,31 +122,6 @@ impl Hkey {
         let lhkey = LongHkey::expand_from_lhkey_str(lhkey_str)?;
 
         Self::from(lhkey).ok()
-    }
-
-    pub fn try_as_prefixed(value: &[u8]) -> Result<Self> {
-        match value[0] {
-            b'B' => Ok(Self::from_base64_slice(&value[1..])),
-            b'D' => Self::try_as_direct(&value[1..]),
-            b'E' => Self::try_as_encrypted(&value[1..]),
-            b'L' => Self::try_as_list_ref(&value[1..]),
-            b'[' => Self::try_as_list(value),
-            b'{' => Self::try_as_long(value),
-            _ => Ok(Self::from_base64_slice(value)),
-        }
-    }
-
-    pub fn try_as(value: &[u8]) -> Result<Self> {
-        match value.len() {
-            HASH_SIZE => Self::try_as_direct(value),
-            DOUBLE_HASH_SIZE => Self::try_as_encrypted(value),
-            _ => Self::try_as_prefixed(value),
-        }
-    }
-
-    #[must_use]
-    pub fn parse(value: &[u8]) -> Self {
-        Self::try_as(value).unwrap_or_else(|_| Self::from_base64_slice(value))
     }
 
     #[must_use]
@@ -687,8 +663,8 @@ impl Hkey {
 impl From<&Hkey> for String {
     fn from(value: &Hkey) -> Self {
         match value {
-            Hkey::Raw(raw) => format!("B{}", ps_base64::encode(raw)),
-            Hkey::Base64(base64) => format!("B{base64}"),
+            Hkey::Raw(raw) => ps_base64::encode(raw),
+            Hkey::Base64(base64) => base64.to_string(),
             Hkey::Direct(hash) => hash.to_string(),
             Hkey::Encrypted(hash, key) => format!("E{hash}{key}"),
             Hkey::ListRef(hash, key) => format!("L{hash}{key}"),
