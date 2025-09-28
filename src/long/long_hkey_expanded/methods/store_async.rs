@@ -7,7 +7,7 @@ use crate::{AsyncStore, Hkey, LongHkey, LongHkeyExpanded, PsHkeyError};
 impl LongHkeyExpanded {
     pub async fn store_async<C, E, S>(&self, store: &S) -> Result<LongHkey, E>
     where
-        C: DataChunk + Unpin,
+        C: DataChunk + Send + Unpin,
         E: From<PsHkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {

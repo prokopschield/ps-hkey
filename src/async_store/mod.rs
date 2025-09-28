@@ -16,7 +16,7 @@ pub trait AsyncStore
 where
     Self: Clone + Sized + Send + Sync + 'static,
 {
-    type Chunk: DataChunk + Unpin;
+    type Chunk: DataChunk + Send + Unpin;
     type Error: From<PsDataChunkError> + From<PsHkeyError> + PromiseRejection + Unpin;
 
     fn get(&self, hash: &Hash) -> Promise<Self::Chunk, Self::Error>;

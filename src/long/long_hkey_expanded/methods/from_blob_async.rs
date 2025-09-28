@@ -20,7 +20,7 @@ impl LongHkeyExpanded {
         data: &'a [u8],
     ) -> Pin<Box<dyn Future<Output = Result<Self, E>> + Send + Sync + 'a>>
     where
-        C: DataChunk + Unpin,
+        C: DataChunk + Send + Unpin,
         E: From<PsHkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
@@ -29,7 +29,7 @@ impl LongHkeyExpanded {
 
     pub async fn from_blob_async<C, E, S>(store: &S, data: &[u8]) -> Result<Self, E>
     where
-        C: DataChunk + Unpin,
+        C: DataChunk + Send + Unpin,
         E: From<PsHkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
