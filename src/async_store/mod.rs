@@ -17,7 +17,7 @@ where
     Self: Clone + Sized + Send + Sync + 'static,
 {
     type Chunk: DataChunk + Send + Unpin;
-    type Error: From<PsDataChunkError> + From<PsHkeyError> + PromiseRejection + Unpin;
+    type Error: From<PsDataChunkError> + From<PsHkeyError> + PromiseRejection + Send + Unpin;
 
     fn get(&self, hash: &Hash) -> Promise<Self::Chunk, Self::Error>;
 
