@@ -24,7 +24,7 @@ impl LongHkeyExpanded {
         range: &Range,
     ) -> Result<Arc<Self>, E>
     where
-        C: DataChunk + Send,
+        C: DataChunk,
         E: From<PsHkeyError> + From<PsDataChunkError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
@@ -119,7 +119,7 @@ impl LongHkeyExpanded {
         range: Range,
     ) -> Result<Arc<Self>, E>
     where
-        C: DataChunk + Send,
+        C: DataChunk,
         E: From<PsHkeyError> + From<PsDataChunkError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {

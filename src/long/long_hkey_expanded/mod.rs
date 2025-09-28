@@ -31,7 +31,7 @@ impl LongHkeyExpanded {
 
     pub fn resolve<'a, C, E, S>(&self, store: &'a S) -> Result<Vec<u8>, E>
     where
-        C: DataChunk + Send,
+        C: DataChunk,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
@@ -40,7 +40,7 @@ impl LongHkeyExpanded {
 
     pub fn resolve_slice<'a, C, E, S>(&self, store: &'a S, range: Range) -> Result<Vec<u8>, E>
     where
-        C: DataChunk + Send,
+        C: DataChunk,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {

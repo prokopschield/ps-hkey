@@ -150,7 +150,7 @@ impl Hkey {
 
     pub fn resolve<'a, C, E, S>(&self, store: &'a S) -> TResult<Bytes, E>
     where
-        C: DataChunk + Send,
+        C: DataChunk,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
@@ -186,7 +186,7 @@ impl Hkey {
 
     pub fn resolve_list_ref<'a, C, E, S>(hash: &Hash, key: &Hash, store: &'a S) -> TResult<Bytes, E>
     where
-        C: DataChunk + Send,
+        C: DataChunk,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
@@ -197,7 +197,7 @@ impl Hkey {
 
     pub fn resolve_list<'a, C, E, S>(list: &[Self], store: &'a S) -> TResult<OwnedDataChunk, E>
     where
-        C: DataChunk + Send,
+        C: DataChunk,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
@@ -225,7 +225,7 @@ impl Hkey {
         range: Range,
     ) -> TResult<Vec<u8>, E>
     where
-        C: DataChunk + Send,
+        C: DataChunk,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
@@ -258,7 +258,7 @@ impl Hkey {
         range: Range,
     ) -> TResult<Vec<u8>, E>
     where
-        C: DataChunk + Send,
+        C: DataChunk,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
@@ -271,7 +271,7 @@ impl Hkey {
 
     pub fn resolve_slice<'a, C, E, S>(&self, store: &'a S, range: Range) -> TResult<Vec<u8>, E>
     where
-        C: DataChunk + Send,
+        C: DataChunk,
         E: From<PsDataChunkError> + From<PsHkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
