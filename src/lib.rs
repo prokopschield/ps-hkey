@@ -140,7 +140,9 @@ impl Hkey {
         accumulator
     }
 
-    /// Transmutates Encrypted(Hash,Key) into ListRef(Hash,Key), leaves other variants unchanged
+    /// Transmutates Encrypted(Hash,Key) into ListRef(Hash,Key)
+    /// # Errors
+    /// - [`PsHkeyError::EncryptedIntoListRefError`] if a different variant of [`Hkey`] is supplied
     pub fn encrypted_into_list_ref(self) -> Result<Self> {
         match self {
             Self::Encrypted(hash, key) => Self::ListRef(hash, key).ok(),
