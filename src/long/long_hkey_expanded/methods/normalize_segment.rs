@@ -11,6 +11,17 @@ use crate::{
 use super::update::helpers::{calculate_depth, calculate_segment_length};
 
 impl LongHkeyExpanded {
+    /// Normalizes a segment of this `LongHkeyExpanded` within the given range, producing a new
+    /// `LongHkeyExpanded` optimized based on depth and size. Uses parallel processing for large
+    /// segments and recursive normalization for depth >= 1.
+    ///
+    /// # Arguments
+    /// - `store`: The data store for resolving and storing chunks.
+    /// - `depth`: The recursion depth for segment splitting.
+    /// - `range`: The range to normalize (start..end, inclusive start, exclusive end).
+    ///
+    /// # Returns
+    /// An `Arc<LongHkeyExpanded>` containing the normalized segment, or an error if resolution fails.
     pub fn normalize_segment<'a, C, E, S>(
         &self,
         store: &'a S,
@@ -26,18 +37,19 @@ impl LongHkeyExpanded {
             return Ok(Arc::from(Self::default()));
         }
 
-        for part in self.parts.iter() {
-            if part.0 == range {
-                match &part.1 {
-                    Hkey::LongHkeyExpanded(lhkey) => return Ok(lhkey.clone()),
-                    Hkey::LongHkey(lhkey) => {
-                        let lhkey = lhkey.expand(store)?;
-
-                        return Ok(Arc::from(lhkey));
-                    }
-                    _ => (),
+        // Check for existing segment
+        if let Some(result) = self.parts.iter().find_map(|segment| {
+            if segment.0 == range {
+                match &segment.1 {
+                    Hkey::LongHkeyExpanded(lhkey) => Some(Ok(lhkey.clone())),
+                    Hkey::LongHkey(lhkey) => Some(lhkey.expand(store).map(Arc::new)),
+                    _ => None,
                 }
+            } else {
+                None
             }
+        }) {
+            return result;
         }
 
         let length = range.end - range.start;
@@ -45,14 +57,16 @@ impl LongHkeyExpanded {
 
         if depth == 0 && length <= LHKEY_SEGMENT_MAX_LENGTH {
             let data = self.resolve_slice(store, range)?;
-            let parts = Arc::from([(0..length, store.put(&data)?)]);
-            let lhkey = Self::new(0, data.len(), parts);
+            let segment_hkey = store.put(&data)?;
+            let segment_parts = Arc::from([(0..length, segment_hkey)]);
+            let lhkey = Self::new(0, data.len(), segment_parts);
 
             return Ok(Arc::from(lhkey));
         }
 
         if depth == 0 {
-            let iterator = (0..length.div_ceil(LHKEY_SEGMENT_MAX_LENGTH)).into_par_iter();
+            let count = length.div_ceil(LHKEY_SEGMENT_MAX_LENGTH);
+            let iterator = (0..count).into_par_iter();
 
             let parts: Result<Vec<_>, E> = iterator
                 .map(|index| {
