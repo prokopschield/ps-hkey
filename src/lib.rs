@@ -181,7 +181,7 @@ impl Hkey {
         S: Store<Chunk<'a> = C, Error = E>,
     {
         let encrypted = store.get(hash)?;
-        let decrypted = encrypted.decrypt(key.as_bytes())?;
+        let decrypted = encrypted.decrypt(key)?;
 
         Ok(decrypted)
     }
@@ -255,7 +255,7 @@ impl Hkey {
 
     pub fn resolve_list_ref_slice<'a, C, E, S>(
         hash: &Hash,
-        key: &[u8],
+        key: &Hash,
         store: &'a S,
         range: Range,
     ) -> TResult<Vec<u8>, E>
@@ -280,9 +280,7 @@ impl Hkey {
         match self {
             Self::List(list) => Self::resolve_list_slice(list, store, range),
 
-            Self::ListRef(hash, key) => {
-                Self::resolve_list_ref_slice(hash, key.as_bytes(), store, range)
-            }
+            Self::ListRef(hash, key) => Self::resolve_list_ref_slice(hash, key, store, range),
 
             Self::LongHkey(lhkey) => lhkey.expand(store)?.resolve_slice(store, range),
 
@@ -350,7 +348,7 @@ impl Hkey {
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         let encrypted = store.get(hash).await?;
-        let decrypted = encrypted.decrypt(key.as_bytes())?;
+        let decrypted = encrypted.decrypt(key)?;
 
         Ok(decrypted)
     }
@@ -402,7 +400,7 @@ impl Hkey {
 
     pub async fn resolve_list_ref_slice_async<C, E, S>(
         hash: &Hash,
-        key: &[u8],
+        key: &Hash,
         store: &S,
         range: Range,
     ) -> TResult<Vec<u8>, E>
@@ -473,7 +471,7 @@ impl Hkey {
             Self::List(list) => Self::resolve_list_slice_async(list, store, range).await,
 
             Self::ListRef(hash, key) => {
-                Self::resolve_list_ref_slice_async(hash, key.as_bytes(), store, range).await
+                Self::resolve_list_ref_slice_async(hash, key, store, range).await
             }
 
             Self::LongHkey(lhkey) => {

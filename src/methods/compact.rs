@@ -8,7 +8,7 @@ impl Hkey {
         match self.shrink(store)? {
             Self::Raw(value) => Ok(value.to_vec()),
             Self::Base64(value) => Ok(base64::decode(value.as_bytes())),
-            Self::Direct(hash) => Ok(hash.compact()),
+            Self::Direct(hash) => Ok(hash.compact().to_vec()),
             Self::Encrypted(hash, key) => Ok(compact_dhash(&hash, &key, 0)),
             Self::ListRef(hash, key) => Ok(compact_dhash(&hash, &key, 1)),
             Self::LongHkey(lhkey) => Ok(compact_dhash(lhkey.hash_ref(), lhkey.key_ref(), 1)),
@@ -20,8 +20,8 @@ impl Hkey {
 pub fn compact_dhash(a: &Hash, b: &Hash, flag: u8) -> Vec<u8> {
     let mut double = Vec::with_capacity(HASH_SIZE_COMPACT * 2);
 
-    double.extend_from_slice(&a.compact());
-    double.extend_from_slice(&b.compact());
+    double.extend_from_slice(a.compact());
+    double.extend_from_slice(b.compact());
 
     double[0] &= 0xFE;
     double[0] ^= flag;
@@ -122,7 +122,7 @@ mod tests {
         let hkey = Hkey::parse(store.put(&data).unwrap().to_string());
 
         let Hkey::ListRef(data_hash, key_hash) = &hkey else {
-            panic!("Expected Hkey::ListRef");
+            panic!("Expected Hkey::ListRef, got {hkey:?}");
         };
 
         let compact = hkey.compact(&store).unwrap();

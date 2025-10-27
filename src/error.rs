@@ -1,5 +1,5 @@
 use ps_datachunk::PsDataChunkError;
-use ps_hash::{HashError, HashValidationError, PsHashError};
+use ps_hash::{HashError, HashValidationError};
 use std::num::ParseIntError;
 use std::str::Utf8Error;
 use thiserror::Error;
@@ -14,8 +14,6 @@ pub enum PsHkeyError {
     ParseIntError(#[from] ParseIntError),
     #[error(transparent)]
     PsDataChunkError(#[from] PsDataChunkError),
-    #[error(transparent)]
-    PsHashError(#[from] PsHashError),
     #[error(transparent)]
     Utf8Error(#[from] Utf8Error),
 

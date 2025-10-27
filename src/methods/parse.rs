@@ -49,15 +49,17 @@ mod tests {
             Hkey::Base64(value) => Hkey::Base64(canonize_base64(value.as_bytes()).into()),
             Hkey::Raw(_) => Hkey::parse(h.to_string()),
 
-            Hkey::Direct(hash) => Hkey::Direct(Arc::new(canonize_hash(&**hash))),
+            Hkey::Direct(hash) => Hkey::Direct(Arc::new(canonize_hash(hash.to_string()))),
 
-            Hkey::Encrypted(hash, key) => {
-                Hkey::Encrypted(canonize_hash(&**hash).into(), canonize_hash(&**key).into())
-            }
+            Hkey::Encrypted(hash, key) => Hkey::Encrypted(
+                canonize_hash(hash.to_string()).into(),
+                canonize_hash(key.to_string()).into(),
+            ),
 
-            Hkey::ListRef(hash, key) => {
-                Hkey::ListRef(canonize_hash(&**hash).into(), canonize_hash(&**key).into())
-            }
+            Hkey::ListRef(hash, key) => Hkey::ListRef(
+                canonize_hash(hash.to_string()).into(),
+                canonize_hash(key.to_string()).into(),
+            ),
 
             Hkey::List(hkeys) => {
                 let hkeys: Vec<Hkey> = hkeys

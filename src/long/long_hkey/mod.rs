@@ -91,7 +91,7 @@ impl LongHkey {
         &self,
         encrypted: &[u8],
     ) -> Result<LongHkeyExpanded, PsHkeyError> {
-        let lhkey_str = decrypt(encrypted, self.key.as_bytes())?;
+        let lhkey_str = decrypt(encrypted, &self.key)?;
 
         Self::expand_from_lhkey_str(lhkey_str.data_ref())
     }

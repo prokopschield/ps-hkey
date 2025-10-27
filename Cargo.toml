@@ -7,12 +7,12 @@ license = "GPL-3.0-or-later"
 
 [dependencies]
 futures = "0.3.31"
-ps-base64 = "0.1.0-5"
-ps-cypher = "0.1.0-24"
-ps-datachunk = "0.1.0-32"
-ps-hash = "0.1.0-20"
+ps-base64 = "0.1.0-6"
+ps-cypher = "0.1.0-25"
+ps-datachunk = "0.1.0-33"
+ps-hash = "0.1.0-23"
 ps-promise = "0.1.0-10"
-ps-util = "0.1.0-3"
+ps-util = "0.1.0-4"
 rayon = "1.11.0"
 thiserror = "2.0.17"
 

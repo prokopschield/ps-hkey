@@ -1,9 +1,7 @@
-use ps_hash::Hash;
-
 pub use ps_hash::HASH_SIZE_COMPACT;
 pub const DOUBLE_HASH_SIZE_COMPACT: usize = 2 * HASH_SIZE_COMPACT;
 
-pub const HASH_SIZE: usize = std::mem::size_of::<Hash>();
+pub use ps_hash::HASH_SIZE;
 pub const DOUBLE_HASH_SIZE: usize = HASH_SIZE * 2;
 
 pub const HASH_SIZE_PREFIXED: usize = HASH_SIZE + 1;
