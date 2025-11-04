@@ -1,3 +1,4 @@
+pub mod combined;
 pub mod in_memory;
 
 use ps_cypher::validate;

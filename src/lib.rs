@@ -31,6 +31,7 @@ pub use store::Store;
 
 pub use crate::async_store::in_memory::InMemoryAsyncStore;
 pub use crate::async_store::in_memory::InMemoryAsyncStoreError;
+pub use crate::store::combined::CombinedStore;
 pub use crate::store::in_memory::InMemoryStore;
 pub use crate::store::in_memory::InMemoryStoreError;
 
