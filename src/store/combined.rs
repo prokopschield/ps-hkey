@@ -76,16 +76,16 @@ impl<E: CombinedStoreError, const WRITE_TO_ALL: bool> CombinedStore<E, WRITE_TO_
     }
 
     fn get(&self, hash: &Hash) -> Result<OwnedDataChunk, E> {
-        let mut last_err = E::no_stores();
+        let mut last_err = None;
 
         for s in self.iter() {
             match s.get(hash) {
                 Ok(chunk) => return Ok(chunk),
-                Err(err) => last_err = err,
+                Err(err) => last_err = Some(err),
             }
         }
 
-        Err(last_err)
+        Err(last_err.unwrap_or_else(E::no_stores))
     }
 }
 
