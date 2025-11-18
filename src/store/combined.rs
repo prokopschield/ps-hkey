@@ -135,16 +135,16 @@ impl<E: CombinedStoreError> Store for CombinedStore<E, false> {
     }
 
     fn put_encrypted<C: DataChunk>(&self, chunk: C) -> Result<(), Self::Error> {
-        let mut last_err = E::no_stores();
+        let mut last_err = None;
 
         for store in self.iter() {
             match store.put_encrypted(chunk.borrow()) {
                 Ok(()) => return Ok(()),
-                Err(err) => last_err = err,
+                Err(err) => last_err = Some(err),
             }
         }
 
-        Err(last_err)
+        Err(last_err.unwrap_or_else(E::no_stores))
     }
 }
 
