@@ -1,4 +1,5 @@
 pub mod in_memory;
+pub mod mixed;
 
 use std::sync::Arc;
 
@@ -16,7 +17,7 @@ pub trait AsyncStore
 where
     Self: Clone + Sized + Send + Sync + 'static,
 {
-    type Chunk: DataChunk + Send + Unpin;
+    type Chunk: DataChunk + Send + Sync + Unpin;
     type Error: From<PsDataChunkError> + From<PsHkeyError> + PromiseRejection + Send + Unpin;
 
     fn get(&self, hash: &Hash) -> Promise<Self::Chunk, Self::Error>;
