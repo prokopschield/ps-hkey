@@ -116,11 +116,13 @@ impl<E: CombinedStoreError> Store for CombinedStore<E, true> {
             return Err(E::no_stores());
         }
 
+        let mut result = Ok(());
+
         for s in self.iter() {
-            s.put_encrypted(chunk.borrow())?;
+            result = result.and(s.put_encrypted(chunk.borrow()));
         }
 
-        Ok(())
+        result
     }
 }
 
