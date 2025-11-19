@@ -1,6 +1,6 @@
 [package]
 name = "ps-hkey"
-version = "0.1.0-30"
+version = "0.1.0-31"
 edition = "2021"
 description = "This crate defines the hashkey format and provides methods for resolving them"
 license = "GPL-3.0-or-later"
