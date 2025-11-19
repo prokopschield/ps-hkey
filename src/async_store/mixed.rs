@@ -329,7 +329,19 @@ impl<E: MixedStoreError> AsyncStore for MixedStore<E, false> {
 
         drop(guard);
 
-        Promise::race(promises)
+        Promise::new(async move {
+            match Promise::any(promises).await {
+                Ok(()) => Ok(()),
+                Err(mut errors) => {
+                    let err = errors
+                        .pop()
+                        .or(last_err)
+                        .unwrap_or_else(E::already_consumed);
+
+                    Err(err)
+                }
+            }
+        })
     }
 }
 
