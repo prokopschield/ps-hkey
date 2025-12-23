@@ -1,7 +1,7 @@
 pub mod combined;
 pub mod in_memory;
 
-use ps_cypher::validate;
+use ps_cypher::validate_ecc;
 use ps_datachunk::{BorrowedDataChunk, DataChunk, PsDataChunkError};
 use ps_hash::Hash;
 
@@ -29,7 +29,7 @@ where
             return Ok(Hkey::Raw(data.into()));
         }
 
-        if data.len() <= MAX_ENCRYPTED_SIZE && validate(data) {
+        if data.len() <= MAX_ENCRYPTED_SIZE && validate_ecc(data) {
             let chunk = BorrowedDataChunk::from_data(data)?;
             let hash = chunk.hash();
 

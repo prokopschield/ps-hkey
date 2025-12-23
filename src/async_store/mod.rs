@@ -3,7 +3,7 @@ pub mod mixed;
 
 use std::sync::Arc;
 
-use ps_cypher::validate;
+use ps_cypher::validate_ecc;
 use ps_datachunk::{Bytes, DataChunk, OwnedDataChunk, PsDataChunkError};
 use ps_hash::Hash;
 use ps_promise::{Promise, PromiseRejection};
@@ -32,7 +32,7 @@ where
                 return Ok(Hkey::Raw(Arc::from(&*data)));
             }
 
-            if data.len() <= MAX_ENCRYPTED_SIZE && validate(&data) {
+            if data.len() <= MAX_ENCRYPTED_SIZE && validate_ecc(&data) {
                 let chunk = OwnedDataChunk::from_bytes(data)?;
                 let hash = chunk.hash();
 

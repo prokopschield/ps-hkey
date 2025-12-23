@@ -9,7 +9,7 @@ use futures::FutureExt;
 use parking_lot::RwLock;
 use ps_datachunk::{DataChunk, OwnedDataChunk, PsDataChunkError};
 use ps_hash::Hash;
-use ps_promise::{Promise, PromiseRejection, Transformer};
+use ps_promise::{Promise, PromiseRejection};
 
 use crate::{store::combined::DynStore, AsyncStore, PsHkeyError, Store};
 
@@ -283,7 +283,7 @@ impl<E: MixedStoreError> AsyncStore for MixedStore<E, true> {
 
         drop(guard);
 
-        Promise::all(promises).then(Transformer::from_infallible_sync_fn(|_| ()))
+        Promise::all(promises).then(async |_| Ok(()))
     }
 }
 
