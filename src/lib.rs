@@ -596,7 +596,7 @@ impl Hkey {
         E: From<PsHkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
-        (self.shrink_or_not(store)?).map_or_else(|| self.ok(), ps_util::ToResult::ok)
+        (self.shrink_or_not(store)?).map_or_else(|| Ok(self), Ok)
     }
 
     pub async fn shrink_into_async<C, E, S>(self, store: &S) -> TResult<Self, E>
@@ -605,7 +605,7 @@ impl Hkey {
         E: From<PsHkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
-        (self.shrink_or_not_async(store).await?).map_or_else(|| self.ok(), ps_util::ToResult::ok)
+        (self.shrink_or_not_async(store).await?).map_or_else(|| Ok(self), Ok)
     }
 
     pub fn shrink<'a, C, E, S>(&self, store: &S) -> TResult<Self, E>
@@ -614,7 +614,7 @@ impl Hkey {
         E: From<PsHkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
-        (self.shrink_or_not(store)?).map_or_else(|| self.clone().ok(), ps_util::ToResult::ok)
+        (self.shrink_or_not(store)?).map_or_else(|| Ok(self.clone()), Ok)
     }
 
     pub async fn shrink_async<C, E, S>(&self, store: &S) -> TResult<Self, E>
@@ -623,8 +623,7 @@ impl Hkey {
         E: From<PsHkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
-        (self.shrink_or_not_async(store).await?)
-            .map_or_else(|| self.clone().ok(), ps_util::ToResult::ok)
+        (self.shrink_or_not_async(store).await?).map_or_else(|| Ok(self.clone()), Ok)
     }
 
     pub fn shrink_to_string<'a, C, E, S>(&self, store: &S) -> TResult<String, E>
