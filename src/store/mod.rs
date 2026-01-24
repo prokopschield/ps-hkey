@@ -35,11 +35,11 @@ where
 
             self.put_encrypted(chunk)?;
 
-            Ok(Hkey::Direct(hash))
+            Ok(Hkey::Direct(hash.into()))
         } else if data.len() <= MAX_DECRYPTED_SIZE {
             let chunk = BorrowedDataChunk::from_data(data)?;
             let encrypted = chunk.encrypt()?;
-            let hkey = Hkey::Encrypted(encrypted.hash(), encrypted.key());
+            let hkey = Hkey::Encrypted(encrypted.hash().into(), encrypted.key().into());
 
             self.put_encrypted(encrypted)?;
 

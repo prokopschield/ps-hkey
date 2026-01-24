@@ -38,11 +38,11 @@ where
 
                 this.put_encrypted(chunk).await?;
 
-                Ok(Hkey::Direct(hash))
+                Ok(Hkey::Direct(Arc::new(hash)))
             } else if data.len() <= MAX_DECRYPTED_SIZE {
                 let chunk = OwnedDataChunk::from_bytes(data)?;
                 let encrypted = chunk.encrypt()?;
-                let hkey = Hkey::Encrypted(encrypted.hash(), encrypted.key());
+                let hkey = Hkey::Encrypted(encrypted.hash().into(), encrypted.key().into());
 
                 this.put_encrypted(encrypted).await?;
 
