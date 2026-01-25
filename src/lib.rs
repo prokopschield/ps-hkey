@@ -40,9 +40,10 @@ pub use crate::store::in_memory::InMemoryStoreError;
 
 pub type Range = std::ops::Range<usize>;
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Hkey {
     /// This variant represents the empty string.
+    #[default]
     Empty,
     /// The data contained in this variant is the value referenced
     Raw(Arc<[u8]>),
