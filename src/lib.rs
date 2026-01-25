@@ -42,6 +42,8 @@ pub type Range = std::ops::Range<usize>;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Hkey {
+    /// This variant represents the empty string.
+    Empty,
     /// The data contained in this variant is the value referenced
     Raw(Arc<[u8]>),
     /// The data contained in this variant can be decoded via [`ps_base64::decode()`]
@@ -161,6 +163,7 @@ impl Hkey {
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let chunk = match self {
+            Self::Empty => Bytes::new(),
             Self::Raw(raw) => Bytes::from_owner(raw.clone()),
             Self::Base64(base64) => ps_base64::decode(base64.as_bytes()).into(),
             Self::Direct(hash) => store.get(hash)?.into_bytes(),
@@ -321,6 +324,7 @@ impl Hkey {
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         let chunk = match self {
+            Self::Empty => Bytes::new(),
             Self::Raw(raw) => Bytes::from_owner(raw.clone()),
             Self::Base64(base64) => ps_base64::decode(base64.as_bytes()).into(),
             Self::Direct(hash) => store.get(hash).await?.into_bytes(),
@@ -648,6 +652,7 @@ impl Hkey {
 impl From<&Hkey> for String {
     fn from(value: &Hkey) -> Self {
         match value {
+            Hkey::Empty => Self::new(),
             Hkey::Raw(raw) => ps_base64::encode(raw),
             Hkey::Base64(base64) => base64.to_string(),
             Hkey::Direct(hash) => hash.to_string(),
