@@ -27,14 +27,14 @@ impl LongHkeyExpanded {
         store: &'a S,
         depth: u32,
         range: Range,
-    ) -> Result<Arc<Self>, E>
+    ) -> Result<Self, E>
     where
         C: DataChunk,
         E: From<PsHkeyError> + From<PsDataChunkError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         if range.end == range.start {
-            return Ok(Arc::from(Self::default()));
+            return Ok(Self::default());
         }
 
         // Check for existing segment
@@ -42,7 +42,7 @@ impl LongHkeyExpanded {
             if segment.0 == range {
                 match &segment.1 {
                     Hkey::LongHkeyExpanded(lhkey) => Some(Ok(lhkey.clone())),
-                    Hkey::LongHkey(lhkey) => Some(lhkey.expand(store).map(Arc::new)),
+                    Hkey::LongHkey(lhkey) => Some(lhkey.expand(store)),
                     _ => None,
                 }
             } else {
@@ -61,7 +61,7 @@ impl LongHkeyExpanded {
             let segment_parts = Arc::from([(0..length, segment_hkey)]);
             let lhkey = Self::new(0, data.len(), segment_parts);
 
-            return Ok(Arc::from(lhkey));
+            return Ok(lhkey);
         }
 
         if depth == 0 {
@@ -88,7 +88,7 @@ impl LongHkeyExpanded {
 
             let lhkey = Self::new(1, length, parts);
 
-            return Ok(Arc::from(lhkey));
+            return Ok(lhkey);
         }
 
         // if depth >= 1, resolve recursively
@@ -102,7 +102,7 @@ impl LongHkeyExpanded {
                 let begin = range.start + index * segment_length;
                 let end = range.end.min(range.start + (index + 1) * segment_length);
                 let lhkey = self.normalize_segment(store, depth - 1, begin..end)?;
-                let hkey = Hkey::LongHkey(Arc::from(lhkey.store(store)?));
+                let hkey = Hkey::LongHkey(lhkey.store(store)?);
 
                 Ok::<_, E>((index * segment_length..(index + 1) * segment_length, hkey))
             })
@@ -112,6 +112,6 @@ impl LongHkeyExpanded {
 
         let lhkey = Self::new(depth, length, parts);
 
-        Ok(Arc::from(lhkey))
+        Ok(lhkey)
     }
 }

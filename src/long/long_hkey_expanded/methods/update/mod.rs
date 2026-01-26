@@ -22,7 +22,7 @@ impl LongHkeyExpanded {
         store: &'a S,
         data: &[u8],
         range: &Range,
-    ) -> Result<Arc<Self>, E>
+    ) -> Result<Self, E>
     where
         C: DataChunk,
         E: From<PsHkeyError> + From<PsDataChunkError> + Send,
@@ -109,15 +109,10 @@ impl LongHkeyExpanded {
 
         let lhkey = Self::new(0, length, Arc::from(parts?.into_boxed_slice()));
 
-        Ok(Arc::from(lhkey))
+        Ok(lhkey)
     }
 
-    pub fn update<'a, C, E, S>(
-        &self,
-        store: &'a S,
-        data: &[u8],
-        range: Range,
-    ) -> Result<Arc<Self>, E>
+    pub fn update<'a, C, E, S>(&self, store: &'a S, data: &[u8], range: Range) -> Result<Self, E>
     where
         C: DataChunk,
         E: From<PsHkeyError> + From<PsDataChunkError> + Send,
@@ -166,6 +161,6 @@ impl LongHkeyExpanded {
 
         let lhkey = Self::new(depth, length, parts);
 
-        Ok(Arc::from(lhkey))
+        Ok(lhkey)
     }
 }

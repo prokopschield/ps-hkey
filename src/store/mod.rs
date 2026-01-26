@@ -26,7 +26,9 @@ where
 
     fn put(&self, data: &[u8]) -> Result<Hkey, Self::Error> {
         if data.len() <= MAX_SIZE_RAW {
-            return Ok(Hkey::Raw(data.into()));
+            return Hkey::from_raw(data)
+                .map_err(PsHkeyError::ConstructionError)
+                .map_err(Into::into);
         }
 
         if data.len() <= MAX_ENCRYPTED_SIZE && validate_ecc(data) {
@@ -35,11 +37,11 @@ where
 
             self.put_encrypted(chunk)?;
 
-            Ok(Hkey::Direct(hash.into()))
+            Ok(Hkey::Direct(hash))
         } else if data.len() <= MAX_DECRYPTED_SIZE {
             let chunk = BorrowedDataChunk::from_data(data)?;
             let encrypted = chunk.encrypt()?;
-            let hkey = Hkey::Encrypted(encrypted.hash().into(), encrypted.key().into());
+            let hkey = Hkey::Encrypted(encrypted.hash(), encrypted.key());
 
             self.put_encrypted(encrypted)?;
 

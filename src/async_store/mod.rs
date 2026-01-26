@@ -1,8 +1,6 @@
 pub mod in_memory;
 pub mod mixed;
 
-use std::sync::Arc;
-
 use ps_cypher::validate_ecc;
 use ps_datachunk::{Bytes, DataChunk, OwnedDataChunk, PsDataChunkError};
 use ps_hash::Hash;
@@ -29,7 +27,9 @@ where
 
         Promise::new(async move {
             if data.len() <= MAX_SIZE_RAW {
-                return Ok(Hkey::Raw(Arc::from(&*data)));
+                return Hkey::from_raw(&data)
+                    .map_err(PsHkeyError::ConstructionError)
+                    .map_err(Into::into);
             }
 
             if data.len() <= MAX_ENCRYPTED_SIZE && validate_ecc(&data) {
@@ -38,11 +38,11 @@ where
 
                 this.put_encrypted(chunk).await?;
 
-                Ok(Hkey::Direct(Arc::new(hash)))
+                Ok(Hkey::Direct(hash))
             } else if data.len() <= MAX_DECRYPTED_SIZE {
                 let chunk = OwnedDataChunk::from_bytes(data)?;
                 let encrypted = chunk.encrypt()?;
-                let hkey = Hkey::Encrypted(encrypted.hash().into(), encrypted.key().into());
+                let hkey = Hkey::Encrypted(encrypted.hash(), encrypted.key());
 
                 this.put_encrypted(encrypted).await?;
 

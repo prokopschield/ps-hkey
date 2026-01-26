@@ -7,8 +7,12 @@ mod error;
 mod long;
 mod methods;
 mod store;
+use arrayvec::ArrayString;
+use arrayvec::ArrayVec;
 pub use async_store::AsyncStore;
 pub use constants::*;
+pub use error::HkeyConstructionError;
+pub use error::HkeyFromCompactError;
 pub use error::PsHkeyError;
 pub use error::Result;
 pub use long::LongHkey;
@@ -46,48 +50,55 @@ pub enum Hkey {
     #[default]
     Empty,
     /// The data contained in this variant is the value referenced
-    Raw(Arc<[u8]>),
+    Raw(ArrayVec<u8, BUF_SIZE_RAW>),
     /// The data contained in this variant can be decoded via [`ps_base64::decode()`]
-    Base64(Arc<str>),
+    Base64(ArrayString<BUF_SIZE_BASE64>),
     /// The data shall be read directly from the [`DataStore`]
-    Direct(Arc<Hash>),
+    Direct(Hash),
     /// **`HashKey`**: The data shall be read via `.0` and decrypted via `.1`
-    Encrypted(Arc<Hash>, Arc<Hash>),
+    Encrypted(Hash, Hash),
     /// A reference to an Encrypted list
-    ListRef(Arc<Hash>, Arc<Hash>),
+    ListRef(Hash, Hash),
     /// A list to be concatinated
     List(Arc<[Hkey]>),
     /// [`LongHkey`] representing a very large buffer
-    LongHkey(Arc<LongHkey>),
+    LongHkey(LongHkey),
     /// an expanded [`LongHkey`]
-    LongHkeyExpanded(Arc<LongHkeyExpanded>),
+    LongHkeyExpanded(LongHkeyExpanded),
 }
 
 impl Hkey {
-    #[must_use]
-    pub fn from_raw(value: &[u8]) -> Self {
-        Self::Raw(value.into())
+    pub fn from_raw(value: &[u8]) -> Result<Self, HkeyConstructionError> {
+        let mut v = ArrayVec::new();
+
+        v.try_extend_from_slice(value)
+            .map_err(|_| HkeyConstructionError::TooLong)?;
+
+        Ok(Self::Raw(v))
     }
 
-    #[must_use]
-    pub fn from_base64_slice(value: &[u8]) -> Self {
-        std::str::from_utf8(value)
-            .map_or_else(|_| Self::Raw(value.into()), |str| Self::Base64(str.into()))
+    pub fn from_base64_slice(value: &str) -> Result<Self, HkeyConstructionError> {
+        let mut v = ArrayString::new();
+
+        v.try_push_str(value)
+            .map_err(|_| HkeyConstructionError::TooLong)?;
+
+        Ok(Self::Base64(v))
     }
 
     pub fn try_as_direct(hash: &[u8]) -> Result<Self> {
-        let hash = Hash::try_from(hash)?.into();
+        let hash = Hash::try_from(hash)?;
         let hkey = Self::Direct(hash);
 
         Ok(hkey)
     }
 
-    pub fn try_parse_encrypted(hashkey: &[u8]) -> Result<(Arc<Hash>, Arc<Hash>)> {
+    pub fn try_parse_encrypted(hashkey: &[u8]) -> Result<(Hash, Hash)> {
         let (hash, key) = hashkey.split_at(HASH_SIZE);
         let hash = Hash::try_from(hash)?;
         let key = Hash::try_from(key)?;
 
-        Ok((hash.into(), key.into()))
+        Ok((hash, key))
     }
 
     pub fn try_as_encrypted(hashkey: &[u8]) -> Result<Self> {
@@ -115,8 +126,9 @@ impl Hkey {
         }
 
         let parts = content.split(|c| *c == b',');
-        let items = parts.map(Self::parse);
-        let items: Vec<Self> = items.collect();
+        let items = parts.map(|item| Self::parse(item).map_err(Into::into));
+        let items: Result<Vec<Self>> = items.collect();
+        let items: Vec<Self> = items?;
         let items: Arc<[Self]> = Arc::from(items.into_boxed_slice());
         let list = Self::List(items);
 
@@ -202,7 +214,9 @@ impl Hkey {
     {
         let list_bytes = Self::resolve_encrypted(hash, key, store)?;
 
-        Self::from(list_bytes.data_ref()).resolve(store)
+        Self::parse(list_bytes.data_ref())
+            .map_err(PsHkeyError::ConstructionError)?
+            .resolve(store)
     }
 
     pub fn resolve_list<'a, C, E, S>(list: &[Self], store: &'a S) -> TResult<OwnedDataChunk, E>
@@ -274,7 +288,7 @@ impl Hkey {
     {
         let chunk = store.get(hash)?;
         let decrypted = chunk.decrypt(key)?;
-        let hkey = Self::from(decrypted.data_ref());
+        let hkey = Self::parse(decrypted.data_ref()).map_err(PsHkeyError::ConstructionError)?;
 
         hkey.resolve_slice(store, range)
     }
@@ -374,7 +388,8 @@ impl Hkey {
     {
         let list_bytes = Self::resolve_encrypted_async(hash, key, store).await?;
 
-        Self::from(list_bytes.data_ref())
+        Self::parse(list_bytes.data_ref())
+            .map_err(PsHkeyError::ConstructionError)?
             .resolve_async_box(store)
             .await
     }
@@ -420,7 +435,7 @@ impl Hkey {
     {
         let chunk = store.get(hash).await?;
         let decrypted = chunk.decrypt(key)?;
-        let hkey = Self::from(decrypted.data_ref());
+        let hkey = Self::parse(decrypted.data_ref()).map_err(PsHkeyError::ConstructionError)?;
 
         hkey.resolve_slice_async_box(store, range).await
     }
@@ -537,7 +552,7 @@ impl Hkey {
                     Err(err) => Err(err)?,
                 }
             }
-            Self::LongHkeyExpanded(lhkey) => Self::LongHkey(lhkey.store(store)?.into()).some(),
+            Self::LongHkeyExpanded(lhkey) => Self::LongHkey(lhkey.store(store)?).some(),
             _ => None,
         }
         .ok()
@@ -672,33 +687,25 @@ impl std::fmt::Display for Hkey {
     }
 }
 
-impl From<&[u8]> for Hkey {
-    fn from(value: &[u8]) -> Self {
+impl TryFrom<&[u8]> for Hkey {
+    type Error = HkeyConstructionError;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         Self::parse(value)
     }
 }
 
-impl From<&str> for Hkey {
-    fn from(value: &str) -> Self {
-        value.as_bytes().into()
-    }
-}
+impl TryFrom<&str> for Hkey {
+    type Error = HkeyConstructionError;
 
-impl From<Arc<Hash>> for Hkey {
-    fn from(hash: Arc<Hash>) -> Self {
-        Self::Direct(hash)
-    }
-}
-
-impl From<&Arc<Hash>> for Hkey {
-    fn from(hash: &Arc<Hash>) -> Self {
-        Self::Direct(hash.clone())
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        value.as_bytes().try_into()
     }
 }
 
 impl From<Hash> for Hkey {
     fn from(hash: Hash) -> Self {
-        Self::Direct(hash.into())
+        Self::Direct(hash)
     }
 }
 
@@ -710,8 +717,8 @@ impl From<&Hash> for Hkey {
 
 impl<A, B> From<(A, B)> for Hkey
 where
-    A: Into<Arc<Hash>>,
-    B: Into<Arc<Hash>>,
+    A: Into<Hash>,
+    B: Into<Hash>,
 {
     fn from(value: (A, B)) -> Self {
         Self::Encrypted(value.0.into(), value.1.into())

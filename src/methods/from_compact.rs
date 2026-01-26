@@ -1,15 +1,15 @@
-use ps_hash::{Hash, HashValidationError};
+use ps_hash::Hash;
 
-use crate::{Hkey, DOUBLE_HASH_SIZE_COMPACT, HASH_SIZE_COMPACT};
+use crate::{Hkey, HkeyFromCompactError, DOUBLE_HASH_SIZE_COMPACT, HASH_SIZE_COMPACT};
 
 impl Hkey {
-    pub fn from_compact(bytes: &[u8]) -> Result<Self, HashValidationError> {
+    pub fn from_compact(bytes: &[u8]) -> Result<Self, HkeyFromCompactError> {
         match bytes.len() {
-            HASH_SIZE_COMPACT => Ok(Self::Direct(Hash::validate(bytes)?.into())),
+            HASH_SIZE_COMPACT => Ok(Self::Direct(Hash::validate(bytes)?)),
 
             DOUBLE_HASH_SIZE_COMPACT => {
-                let hash = Hash::validate(&bytes[..HASH_SIZE_COMPACT])?.into();
-                let key = Hash::validate(&bytes[HASH_SIZE_COMPACT..])?.into();
+                let hash = Hash::validate(&bytes[..HASH_SIZE_COMPACT])?;
+                let key = Hash::validate(&bytes[HASH_SIZE_COMPACT..])?;
 
                 if bytes[0] & 1 == 0 {
                     Ok(Self::Encrypted(hash, key))
@@ -18,7 +18,7 @@ impl Hkey {
                 }
             }
 
-            _ => Ok(Self::Raw(bytes.into())),
+            _ => Self::from_raw(bytes).map_err(Into::into),
         }
     }
 }

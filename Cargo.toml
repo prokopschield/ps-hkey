@@ -6,6 +6,7 @@ description = "This crate defines the hashkey format and provides methods for re
 license = "GPL-3.0-or-later"
 
 [dependencies]
+arrayvec = "0.7.6"
 futures = "0.3.31"
 parking_lot = "0.12.5"
 ps-base64 = "0.1.0-6"

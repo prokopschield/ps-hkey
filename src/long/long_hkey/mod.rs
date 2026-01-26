@@ -1,4 +1,4 @@
-use std::{fmt::Display, sync::Arc};
+use std::fmt::Display;
 
 use ps_datachunk::{utils::decrypt, DataChunk};
 use ps_hash::Hash;
@@ -11,8 +11,8 @@ use super::LongHkeyExpanded;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct LongHkey {
-    hash: Arc<Hash>,
-    key: Arc<Hash>,
+    hash: Hash,
+    key: Hash,
 }
 
 impl Display for LongHkey {
@@ -23,27 +23,27 @@ impl Display for LongHkey {
 
 impl LongHkey {
     #[must_use]
-    pub const fn from_hash_and_key(hash: Arc<Hash>, key: Arc<Hash>) -> Self {
+    pub const fn from_hash_and_key(hash: Hash, key: Hash) -> Self {
         Self { hash, key }
     }
 
     #[must_use]
-    pub fn hash(&self) -> Arc<Hash> {
-        self.hash.clone()
+    pub const fn hash(&self) -> Hash {
+        self.hash
     }
 
     #[must_use]
-    pub fn hash_ref(&self) -> &Hash {
+    pub const fn hash_ref(&self) -> &Hash {
         &self.hash
     }
 
     #[must_use]
-    pub fn key(&self) -> Arc<Hash> {
-        self.key.clone()
+    pub const fn key(&self) -> Hash {
+        self.key
     }
 
     #[must_use]
-    pub fn key_ref(&self) -> &Hash {
+    pub const fn key_ref(&self) -> &Hash {
         &self.key
     }
 
@@ -75,7 +75,7 @@ impl LongHkey {
             let (start, end) = range.split_once('-').ok_or(PsHkeyError::FormatError)?;
             let start: usize = start.parse()?;
             let end: usize = end.parse()?;
-            let hkey: Hkey = Hkey::from(hkey);
+            let hkey: Hkey = Hkey::parse(hkey).map_err(PsHkeyError::ConstructionError)?;
             #[allow(clippy::range_plus_one)]
             Ok((start..end + 1, hkey))
         });

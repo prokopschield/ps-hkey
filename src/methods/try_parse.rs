@@ -16,7 +16,10 @@ impl Hkey {
             (b'L', DOUBLE_HASH_SIZE_PREFIXED) => Self::try_as_list_ref(&bytes[1..]),
             (b'[', _) => Self::try_as_list(bytes),
             (b'{', _) => Self::try_as_long(bytes),
-            _ => Ok(Self::from_base64_slice(bytes)),
+            _ => Ok(match std::str::from_utf8(bytes) {
+                Ok(str) => Self::from_base64_slice(str)?,
+                Err(_) => Self::from_raw(bytes)?,
+            }),
         }
     }
 }

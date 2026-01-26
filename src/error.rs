@@ -7,6 +7,8 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum PsHkeyError {
     #[error(transparent)]
+    ConstructionError(#[from] HkeyConstructionError),
+    #[error(transparent)]
     HashError(#[from] HashError),
     #[error(transparent)]
     HashValidationError(#[from] HashValidationError),
@@ -29,4 +31,18 @@ pub enum PsHkeyError {
     UnreachableCodeReached,
 }
 
-pub type Result<T> = std::result::Result<T, PsHkeyError>;
+pub type Result<T, E = PsHkeyError> = std::result::Result<T, E>;
+
+#[derive(Error, Debug)]
+pub enum HkeyConstructionError {
+    #[error("Maximum length exceeded.")]
+    TooLong,
+}
+
+#[derive(Error, Debug)]
+pub enum HkeyFromCompactError {
+    #[error(transparent)]
+    Construction(#[from] HkeyConstructionError),
+    #[error("Hash validation error: {0}")]
+    HashValidation(#[from] ps_hash::HashValidationError),
+}

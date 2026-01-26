@@ -184,36 +184,24 @@ impl PartialOrd for LongHkeyExpanded {
 
 impl From<LongHkey> for Hkey {
     fn from(lhkey: LongHkey) -> Self {
-        Self::LongHkey(Arc::from(lhkey))
-    }
-}
-
-impl From<Arc<LongHkey>> for Hkey {
-    fn from(lhkey: Arc<LongHkey>) -> Self {
         Self::LongHkey(lhkey)
     }
 }
 
-impl From<&Arc<LongHkey>> for Hkey {
-    fn from(lhkey: &Arc<LongHkey>) -> Self {
+impl From<&LongHkey> for Hkey {
+    fn from(lhkey: &LongHkey) -> Self {
         Self::LongHkey(lhkey.clone())
     }
 }
 
 impl From<LongHkeyExpanded> for Hkey {
     fn from(lhkey: LongHkeyExpanded) -> Self {
-        Self::LongHkeyExpanded(Arc::from(lhkey))
-    }
-}
-
-impl From<Arc<LongHkeyExpanded>> for Hkey {
-    fn from(lhkey: Arc<LongHkeyExpanded>) -> Self {
         Self::LongHkeyExpanded(lhkey)
     }
 }
 
-impl From<&Arc<LongHkeyExpanded>> for Hkey {
-    fn from(lhkey: &Arc<LongHkeyExpanded>) -> Self {
+impl From<&LongHkeyExpanded> for Hkey {
+    fn from(lhkey: &LongHkeyExpanded) -> Self {
         Self::LongHkeyExpanded(lhkey.clone())
     }
 }

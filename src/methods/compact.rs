@@ -47,7 +47,11 @@ mod tests {
     fn test_raw_variant_roundtrip() {
         let store = InMemoryStore::default();
         let data = b"Hello, world!".to_vec();
-        let hkey = Hkey::Raw(data.as_slice().into());
+        let hkey = Hkey::Raw(
+            data.as_slice()
+                .try_into()
+                .expect("Failed to allocate Hkey::Raw"),
+        );
 
         let compact = hkey.compact(&store).unwrap();
         let restored = Hkey::from_compact(&compact).unwrap();
@@ -65,7 +69,7 @@ mod tests {
     fn test_base64_variant_roundtrip() {
         let store = InMemoryStore::default();
         let data = "SGVsbG8gd29ybGQh"; // Base64 for "Hello world!"
-        let hkey = Hkey::Base64(data.into());
+        let hkey = Hkey::Base64(data.try_into().expect("Failed to allocate Hkey::Base64"));
 
         let compact = hkey.compact(&store).unwrap();
         let restored = Hkey::from_compact(&compact).unwrap();
@@ -107,8 +111,8 @@ mod tests {
         assert_eq!(hkey, restored);
         // Verify hashes.
         if let Hkey::Encrypted(data_h, key_h) = &restored {
-            assert_eq!(data_h.as_ref(), hash.as_ref());
-            assert_eq!(key_h.as_ref(), key.as_ref());
+            assert_eq!(data_h, hash);
+            assert_eq!(key_h, key);
             Ok(())
         } else {
             panic!("Expected Encrypted variant");
@@ -119,7 +123,8 @@ mod tests {
     fn test_listref_variant_roundtrip() {
         let store = InMemoryStore::default();
         let data = b"List ref data".repeat(2000);
-        let hkey = Hkey::parse(store.put(&data).unwrap().to_string());
+        let hkey =
+            Hkey::parse(store.put(&data).unwrap().to_string()).expect("Failed to parse Hkey");
 
         let Hkey::ListRef(data_hash, key_hash) = &hkey else {
             panic!("Expected Hkey::ListRef, got {hkey:?}");
@@ -131,8 +136,8 @@ mod tests {
         assert_eq!(hkey, restored);
         // Verify hashes.
         if let Hkey::ListRef(data_h, key_h) = &restored {
-            assert_eq!(data_h.as_ref(), data_hash.as_ref());
-            assert_eq!(key_h.as_ref(), key_hash.as_ref());
+            assert_eq!(data_h, data_hash);
+            assert_eq!(key_h, key_hash);
         } else {
             panic!("Expected ListRef variant");
         }
@@ -172,7 +177,7 @@ mod tests {
         // Assuming there's no empty Hkey, but test Raw with empty data.
         let store = InMemoryStore::default();
         let empty_data = vec![];
-        let hkey = Hkey::Raw(empty_data.into());
+        let hkey = Hkey::from_raw(&empty_data).expect("Failed to allocate Hkey::Raw");
 
         let compact = hkey.compact(&store).unwrap();
 
@@ -184,7 +189,7 @@ mod tests {
     fn test_direct_missing_in_store() {
         let store = InMemoryStore::default();
         let missing_hash = Hash::hash(b"missing").unwrap();
-        let hkey = Hkey::Direct(Arc::new(missing_hash));
+        let hkey = Hkey::Direct(missing_hash);
 
         // compact should succeed even if not in store, as it just stores the hash.
         let compact = hkey.compact(&store).unwrap();

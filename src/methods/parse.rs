@@ -1,11 +1,14 @@
-use crate::Hkey;
+use crate::{Hkey, HkeyConstructionError};
 
 impl Hkey {
-    #[must_use]
-    pub fn parse(value: impl AsRef<[u8]>) -> Self {
+    pub fn parse(value: impl AsRef<[u8]>) -> Result<Self, HkeyConstructionError> {
         let bytes = value.as_ref();
 
-        Self::try_parse(bytes).unwrap_or_else(|_| Self::from_base64_slice(bytes))
+        if let Ok(bytes) = Self::try_parse(bytes) {
+            return Ok(bytes);
+        }
+
+        std::str::from_utf8(bytes).map_or_else(|_| Self::from_raw(bytes), Self::from_base64_slice)
     }
 }
 
@@ -13,8 +16,11 @@ impl Hkey {
 mod tests {
     use std::sync::Arc;
 
+    use arrayvec::ArrayString;
     use ps_base64::base64;
     use ps_hash::{hash, Hash};
+
+    use crate::MAX_SIZE_RAW;
 
     use super::*;
 
@@ -22,12 +28,12 @@ mod tests {
     // Helpers
     // ------------------------
 
-    fn arcstr(s: &str) -> Arc<str> {
-        Arc::<str>::from(s)
+    fn arrstr<const S: usize>(s: &str) -> ArrayString<S> {
+        s.try_into().expect("Failed to allocate ArrayString")
     }
 
-    fn mk_hash(data: impl AsRef<[u8]>) -> Arc<ps_hash::Hash> {
-        Arc::new(hash(data).expect("hashing failed"))
+    fn mk_hash(data: impl AsRef<[u8]>) -> ps_hash::Hash {
+        hash(data).expect("hashing failed")
     }
 
     fn canonize_base64(str: impl AsRef<[u8]>) -> String {
@@ -46,10 +52,15 @@ mod tests {
 
     fn canonize_hkey(h: Hkey) -> Hkey {
         match h {
-            Hkey::Base64(value) => Hkey::Base64(canonize_base64(value.as_bytes()).into()),
-            Hkey::Raw(_) => Hkey::parse(h.to_string()),
+            Hkey::Base64(value) => Hkey::Base64(
+                canonize_base64(value.as_bytes())
+                    .as_str()
+                    .try_into()
+                    .expect("Failed to allocate ArrayString"),
+            ),
+            Hkey::Raw(_) => Hkey::parse(h.to_string()).expect("Failed to parse Hkey"),
 
-            Hkey::Direct(hash) => Hkey::Direct(Arc::new(canonize_hash(hash.to_string()))),
+            Hkey::Direct(hash) => Hkey::Direct(canonize_hash(hash.to_string())),
 
             Hkey::Encrypted(hash, key) => Hkey::Encrypted(
                 canonize_hash(hash.to_string()).into(),
@@ -86,7 +97,7 @@ mod tests {
     // over further rounds (idempotence).
     fn assert_stable_after_first_canonicalization(h: Hkey) -> Hkey {
         let (c1, s1) = canonicalize_once(h);
-        let c2 = Hkey::parse(s1.as_bytes());
+        let c2 = Hkey::parse(s1.as_bytes()).expect("Failed to parse Hkey");
         assert_eq!(
             c1, c2,
             "Canonicalized Hkey must be stable over a second parse"
@@ -196,7 +207,9 @@ mod tests {
 
     fn assert_raw_canonicalizes_to_base64(raw: Arc<[u8]>) {
         let expected = ps_base64::encode(&*raw);
-        let canon = assert_stable_after_first_canonicalization(Hkey::Raw(raw));
+        let canon = assert_stable_after_first_canonicalization(Hkey::Raw(
+            (&*raw).try_into().expect("Failed to allocate ArrayVec"),
+        ));
         match canon {
             Hkey::Base64(s) => {
                 assert_eq!(
@@ -220,7 +233,7 @@ mod tests {
     #[test]
     fn raw_patterns_canonicalize_to_base64() {
         let seeds: [u8; 6] = [0, 1, 7, 63, 127, 255];
-        let lengths: [usize; 10] = [2, 3, 4, 5, 7, 8, 15, 16, 31, 64];
+        let lengths: [usize; 10] = [2, 3, 4, 5, 7, 8, 15, 16, 31, MAX_SIZE_RAW];
 
         for &len in &lengths {
             for &seed in &seeds {
@@ -229,17 +242,11 @@ mod tests {
         }
 
         // Alternating / extreme bytes
-        for &len in &[2usize, 8, 16, 32, 64, 128, 255] {
+        for &len in &[2usize, 8, 16, 32, MAX_SIZE_RAW] {
             assert_raw_canonicalizes_to_base64(vec![0x00; len].into());
             assert_raw_canonicalizes_to_base64(vec![0xFF; len].into());
             assert_raw_canonicalizes_to_base64(alternating(len, 0x00, 0xFF));
             assert_raw_canonicalizes_to_base64(alternating(len, 0xAA, 0x55));
-        }
-
-        // Longish
-        for &len in &[257usize, 512, 1024] {
-            assert_raw_canonicalizes_to_base64(bytes_pattern(len, 0x6D));
-            assert_raw_canonicalizes_to_base64(alternating(len, 0x13, 0xE7));
         }
     }
 
@@ -253,7 +260,9 @@ mod tests {
         for &first in &[16u8, 44u8] {
             let raw: Arc<[u8]> = vec![first, 0, 0].into();
             let expected = ps_base64::encode(&*raw);
-            let canon = assert_stable_after_first_canonicalization(Hkey::Raw(raw));
+            let canon = assert_stable_after_first_canonicalization(Hkey::Raw(
+                (&*raw).try_into().expect("Failed to allocate ArrayVec"),
+            ));
             match canon {
                 Hkey::Base64(s) => assert_eq!(s.as_ref(), expected),
                 other => panic!("Expected Base64, got {:?}", other),
@@ -284,7 +293,7 @@ mod tests {
     fn base64_canonical_strings_are_stable() {
         for data in base64_bytes_examples() {
             let canonical = ps_base64::encode(&*data);
-            let h = Hkey::Base64(arcstr(&canonical));
+            let h = Hkey::Base64(arrstr(&canonical));
             let canon = assert_stable_after_first_canonicalization(h);
             match canon {
                 Hkey::Base64(s) => assert_eq!(
@@ -302,7 +311,7 @@ mod tests {
         for data in base64_bytes_examples() {
             let canonical = ps_base64::encode(&*data);
             for alt in alt_base64_spellings(&canonical) {
-                let h = Hkey::Base64(arcstr(&alt));
+                let h = Hkey::Base64(arrstr(&alt));
                 let canon = assert_stable_after_first_canonicalization(h);
                 match canon {
                     Hkey::Base64(s) => assert_eq!(
@@ -408,12 +417,12 @@ mod tests {
         // - Direct / Encrypted / ListRef (should stay identical)
         let lst = Hkey::List(
             vec![
-                Hkey::Raw(raw_a.clone()),
-                Hkey::Base64(arcstr(&mime_hello)),
+                Hkey::from_raw(&raw_a).expect("Failed to allocate Hkey::Raw"),
+                Hkey::Base64(arrstr(&mime_hello)),
                 Hkey::Direct(mk_hash(b"dir-x")),
                 Hkey::Encrypted(mk_hash(b"eh"), mk_hash(b"ek")),
                 Hkey::ListRef(mk_hash(b"lh"), mk_hash(b"lk")),
-                Hkey::Raw(raw_b.clone()),
+                Hkey::from_raw(&raw_b).expect("Failed to allocate ArrayVec"),
             ]
             .into(),
         );
@@ -423,12 +432,12 @@ mod tests {
         // Build the expected canonicalized list explicitly
         let expected = Hkey::List(
             vec![
-                Hkey::Base64(arcstr(&b64_raw_a)),
-                Hkey::Base64(arcstr(&canon_hello)),
+                Hkey::Base64(arrstr(&b64_raw_a)),
+                Hkey::Base64(arrstr(&canon_hello)),
                 Hkey::Direct(mk_hash(b"dir-x")),
                 Hkey::Encrypted(mk_hash(b"eh"), mk_hash(b"ek")),
                 Hkey::ListRef(mk_hash(b"lh"), mk_hash(b"lk")),
-                Hkey::Base64(arcstr(&b64_raw_b)),
+                Hkey::Base64(arrstr(&b64_raw_b)),
             ]
             .into(),
         );
@@ -449,11 +458,11 @@ mod tests {
     fn multi_cycle_idempotence_after_first_pass() {
         let samples: Vec<Hkey> = vec![
             // Raw and Base64 non-canonical
-            Hkey::Raw(vec![0x00, 0xFF, 0x7E, 0x81].into()),
+            Hkey::from_raw(&vec![0x00, 0xFF, 0x7E, 0x81]).expect("Failed to allocate Hkey::raw"),
             {
                 let canon = ps_base64::encode(b"foobar");
                 let alt = pad_to_multiple_of_4(canon.clone());
-                Hkey::Base64(arcstr(&alt))
+                Hkey::Base64(arrstr(&alt))
             },
             // Direct / Encrypted / ListRef
             Hkey::Direct(mk_hash(b"E123notEncrypted")),
@@ -463,8 +472,8 @@ mod tests {
             Hkey::List(
                 vec![
                     Hkey::Direct(mk_hash(b"x")),
-                    Hkey::Raw(vec![1, 2, 3].into()),
-                    Hkey::Base64(arcstr(&insert_line_breaks(
+                    Hkey::from_raw(&vec![1, 2, 3]).expect("Failed to allocate Hkey::Raw"),
+                    Hkey::Base64(arrstr(&insert_line_breaks(
                         &pad_to_multiple_of_4(ps_base64::encode(b"Hello")),
                         2,
                     ))),
@@ -478,7 +487,7 @@ mod tests {
             let (mut c, mut s) = canonicalize_once(h);
             for _ in 0..5 {
                 // Subsequent cycles must be perfectly stable
-                let c2 = Hkey::parse(s.as_bytes());
+                let c2 = Hkey::parse(s.as_bytes()).expect("Failed to parse Hkey");
                 assert_eq!(c, c2, "Hkey must remain stable across cycles");
                 let s2 = String::from(&c2);
                 assert_eq!(s, s2, "String must remain stable across cycles");
