@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::{Hkey, DOUBLE_HASH_SIZE, DOUBLE_HASH_SIZE_PREFIXED, HASH_SIZE, HASH_SIZE_PREFIXED};
 
 impl Hkey {
@@ -7,7 +5,7 @@ impl Hkey {
         let bytes = value.as_ref();
 
         if bytes.is_empty() {
-            return Ok(Self::Base64(Arc::default()));
+            return Ok(Self::Empty);
         }
 
         match (bytes[0], bytes.len()) {
@@ -32,6 +30,15 @@ mod tests {
         let hkey = Hkey::try_parse("")?;
 
         assert_eq!(hkey.to_string(), "".to_string());
+
+        Ok(())
+    }
+
+    #[test]
+    fn empty_variant() -> crate::Result<()> {
+        let hkey = Hkey::try_parse("")?;
+
+        assert_eq!(hkey, Hkey::Empty);
 
         Ok(())
     }

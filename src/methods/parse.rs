@@ -210,10 +210,7 @@ mod tests {
     }
 
     #[test]
-    fn raw_len0_and_all_len1_canonicalize_to_base64() {
-        // len = 0
-        assert_raw_canonicalizes_to_base64(Arc::<[u8]>::default());
-
+    fn raw_len1_canonicalizes_to_base64() {
         // len = 1, exhaustive over all 256 possible bytes
         for b in 0u16..=255 {
             assert_raw_canonicalizes_to_base64(vec![b as u8].into());
@@ -270,7 +267,6 @@ mod tests {
 
     fn base64_bytes_examples() -> Vec<Arc<[u8]>> {
         vec![
-            Arc::<[u8]>::from(b"" as &[u8]),
             Arc::<[u8]>::from(b"f" as &[u8]),
             Arc::<[u8]>::from(b"fo" as &[u8]),
             Arc::<[u8]>::from(b"foo" as &[u8]),
