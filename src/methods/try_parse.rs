@@ -32,7 +32,7 @@ mod tests {
     fn empty() -> crate::Result<()> {
         let hkey = Hkey::try_parse("")?;
 
-        assert_eq!(hkey.to_string(), "".to_string());
+        assert_eq!(hkey.to_string(), String::new());
 
         Ok(())
     }

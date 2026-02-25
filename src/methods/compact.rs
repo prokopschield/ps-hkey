@@ -81,7 +81,7 @@ mod tests {
     fn test_direct_variant_roundtrip() {
         let store = InMemoryStore::default();
 
-        let hkey = Hkey::Direct(Hash::hash(b"Hello, world!").unwrap().into());
+        let hkey = Hkey::Direct(Hash::hash(b"Hello, world!").unwrap());
 
         let compact = hkey.compact(&store).unwrap();
         let restored = Hkey::from_compact(&compact).unwrap();
@@ -153,7 +153,7 @@ mod tests {
             0..5000,
         )?;
 
-        let hkey = Hkey::LongHkeyExpanded(mock_long_expanded.clone()).shrink(&store)?;
+        let hkey = Hkey::LongHkeyExpanded(mock_long_expanded).shrink(&store)?;
 
         let compact = hkey.compact(&store).unwrap();
         let restored = Hkey::from_compact(&compact).unwrap();

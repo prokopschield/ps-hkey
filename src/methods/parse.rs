@@ -63,13 +63,13 @@ mod tests {
             Hkey::Direct(hash) => Hkey::Direct(canonize_hash(hash.to_string())),
 
             Hkey::Encrypted(hash, key) => Hkey::Encrypted(
-                canonize_hash(hash.to_string()).into(),
-                canonize_hash(key.to_string()).into(),
+                canonize_hash(hash.to_string()),
+                canonize_hash(key.to_string()),
             ),
 
             Hkey::ListRef(hash, key) => Hkey::ListRef(
-                canonize_hash(hash.to_string()).into(),
-                canonize_hash(key.to_string()).into(),
+                canonize_hash(hash.to_string()),
+                canonize_hash(key.to_string()),
             ),
 
             Hkey::List(hkeys) => {
@@ -206,7 +206,7 @@ mod tests {
     // ------------------------
 
     fn assert_raw_canonicalizes_to_base64(raw: Arc<[u8]>) {
-        let expected = ps_base64::encode(&*raw);
+        let expected = ps_base64::encode(&raw);
         let canon = assert_stable_after_first_canonicalization(Hkey::Raw(
             (&*raw).try_into().expect("Failed to allocate ArrayVec"),
         ));
@@ -218,7 +218,7 @@ mod tests {
                     "Raw must canonicalize to Base64 with Hkey alphabet"
                 );
             }
-            other => panic!("Raw must canonicalize to Base64, got {:?}", other),
+            other => panic!("Raw must canonicalize to Base64, got {other:?}"),
         }
     }
 
@@ -259,13 +259,13 @@ mod tests {
         // Values chosen to bias toward 'E' (~index 4) and 'L' (~index 11).
         for &first in &[16u8, 44u8] {
             let raw: Arc<[u8]> = vec![first, 0, 0].into();
-            let expected = ps_base64::encode(&*raw);
+            let expected = ps_base64::encode(&raw);
             let canon = assert_stable_after_first_canonicalization(Hkey::Raw(
                 (&*raw).try_into().expect("Failed to allocate ArrayVec"),
             ));
             match canon {
                 Hkey::Base64(s) => assert_eq!(s.as_ref(), expected),
-                other => panic!("Expected Base64, got {:?}", other),
+                other => panic!("Expected Base64, got {other:?}"),
             }
         }
     }
@@ -292,7 +292,7 @@ mod tests {
     #[test]
     fn base64_canonical_strings_are_stable() {
         for data in base64_bytes_examples() {
-            let canonical = ps_base64::encode(&*data);
+            let canonical = ps_base64::encode(&data);
             let h = Hkey::Base64(arrstr(&canonical));
             let canon = assert_stable_after_first_canonicalization(h);
             match canon {
@@ -301,7 +301,7 @@ mod tests {
                     canonical,
                     "Canonical Base64 should remain unchanged"
                 ),
-                other => panic!("Base64 should remain Base64, got {:?}", other),
+                other => panic!("Base64 should remain Base64, got {other:?}"),
             }
         }
     }
@@ -309,7 +309,7 @@ mod tests {
     #[test]
     fn base64_non_canonical_spellings_normalize_to_canonical() {
         for data in base64_bytes_examples() {
-            let canonical = ps_base64::encode(&*data);
+            let canonical = ps_base64::encode(&data);
             for alt in alt_base64_spellings(&canonical) {
                 let h = Hkey::Base64(arrstr(&alt));
                 let canon = assert_stable_after_first_canonicalization(h);
@@ -319,7 +319,7 @@ mod tests {
                         canonical,
                         "Non-canonical Base64 must normalize to Hkey alphabet: {s} vs. {canonical}"
                     ),
-                    other => panic!("Base64 should remain Base64, got {:?}", other),
+                    other => panic!("Base64 should remain Base64, got {other:?}"),
                 }
             }
         }
@@ -362,14 +362,14 @@ mod tests {
             (mk_hash(b"hash-2"), mk_hash(b"key-2")),
         ];
         for (hh, kk) in cases {
-            let h = Hkey::Encrypted(hh.clone(), kk.clone());
+            let h = Hkey::Encrypted(hh, kk);
             let canon = assert_stable_after_first_canonicalization(h.clone());
             assert_eq!(canon, h, "Encrypted should remain identical");
         }
 
         // Identical components edge case
         let h = mk_hash(b"same");
-        let e = Hkey::Encrypted(h.clone(), h.clone());
+        let e = Hkey::Encrypted(h, h);
         let canon = assert_stable_after_first_canonicalization(e.clone());
         assert_eq!(canon, e, "Encrypted identical parts should remain same");
     }
@@ -381,14 +381,14 @@ mod tests {
             (mk_hash(b"list-hash-2"), mk_hash(b"list-key-2")),
         ];
         for (hh, kk) in cases {
-            let h = Hkey::ListRef(hh.clone(), kk.clone());
+            let h = Hkey::ListRef(hh, kk);
             let canon = assert_stable_after_first_canonicalization(h.clone());
             assert_eq!(canon, h, "ListRef should remain identical");
         }
 
         // Identical components edge case
         let h = mk_hash(b"same-lr");
-        let lr = Hkey::ListRef(h.clone(), h.clone());
+        let lr = Hkey::ListRef(h, h);
         let canon = assert_stable_after_first_canonicalization(lr.clone());
         assert_eq!(canon, lr, "ListRef identical parts should remain same");
     }
@@ -403,12 +403,12 @@ mod tests {
         let raw_a: Arc<[u8]> = vec![0, 1, 2, 3].into();
         let raw_b: Arc<[u8]> = bytes_pattern(7, 0x11);
 
-        let b64_raw_a = ps_base64::encode(&*raw_a);
-        let b64_raw_b = ps_base64::encode(&*raw_b);
+        let b64_raw_a = ps_base64::encode(&raw_a);
+        let b64_raw_b = ps_base64::encode(&raw_b);
 
         // Prepare a non-canonical Base64 spelling for "Hello".
         let b_hello: Arc<[u8]> = Arc::<[u8]>::from(b"Hello" as &[u8]);
-        let canon_hello = ps_base64::encode(&*b_hello);
+        let canon_hello = ps_base64::encode(&b_hello);
         let mime_hello = insert_line_breaks(&pad_to_multiple_of_4(canon_hello.clone()), 3);
 
         // Construct a list with a mix:
@@ -458,10 +458,10 @@ mod tests {
     fn multi_cycle_idempotence_after_first_pass() {
         let samples: Vec<Hkey> = vec![
             // Raw and Base64 non-canonical
-            Hkey::from_raw(&vec![0x00, 0xFF, 0x7E, 0x81]).expect("Failed to allocate Hkey::raw"),
+            Hkey::from_raw(&[0x00, 0xFF, 0x7E, 0x81]).expect("Failed to allocate Hkey::raw"),
             {
                 let canon = ps_base64::encode(b"foobar");
-                let alt = pad_to_multiple_of_4(canon.clone());
+                let alt = pad_to_multiple_of_4(canon);
                 Hkey::Base64(arrstr(&alt))
             },
             // Direct / Encrypted / ListRef
@@ -472,7 +472,7 @@ mod tests {
             Hkey::List(
                 vec![
                     Hkey::Direct(mk_hash(b"x")),
-                    Hkey::from_raw(&vec![1, 2, 3]).expect("Failed to allocate Hkey::Raw"),
+                    Hkey::from_raw(&[1, 2, 3]).expect("Failed to allocate Hkey::Raw"),
                     Hkey::Base64(arrstr(&insert_line_breaks(
                         &pad_to_multiple_of_4(ps_base64::encode(b"Hello")),
                         2,

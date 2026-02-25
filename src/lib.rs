@@ -60,7 +60,7 @@ pub enum Hkey {
     /// A reference to an Encrypted list
     ListRef(Hash, Hash),
     /// A list to be concatinated
-    List(Arc<[Hkey]>),
+    List(Arc<[Self]>),
     /// [`LongHkey`] representing a very large buffer
     LongHkey(LongHkey),
     /// an expanded [`LongHkey`]
