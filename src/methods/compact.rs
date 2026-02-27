@@ -30,6 +30,7 @@ pub fn compact_dhash(a: &Hash, b: &Hash, flag: u8) -> Vec<u8> {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
 
     // Assuming InMemoryStore implements the Store trait with methods like:
@@ -37,7 +38,7 @@ mod tests {
     // - get(&self, hash: &Hash) -> Option<Vec<u8>>
     // Hash is a type in the crate with a static method Hash::hash(data: &[u8]) -> Hash.
 
-    use std::{error::Error, sync::Arc};
+    use std::sync::Arc;
 
     use ps_hash::Hash;
 
@@ -53,16 +54,17 @@ mod tests {
                 .expect("Failed to allocate Hkey::Raw"),
         );
 
-        let compact = hkey.compact(&store).unwrap();
-        let restored = Hkey::from_compact(&compact).unwrap();
+        let compact = hkey.compact(&store).expect("Failed to compact Hkey");
+        let restored = Hkey::from_compact(&compact).expect("Failed to restore Hkey");
 
         assert_eq!(hkey, restored);
         // Verify inner data.
-        if let Hkey::Raw(raw_data) = &restored {
-            assert_eq!(raw_data.as_ref(), data.as_slice());
-        } else {
-            panic!("Expected Raw variant");
+        let raw_data = match &restored {
+            Hkey::Raw(raw_data) => Some(raw_data),
+            _ => None,
         }
+        .expect("Expected Raw variant");
+        assert_eq!(raw_data.as_ref(), data.as_slice());
     }
 
     #[test]
@@ -71,8 +73,8 @@ mod tests {
         let data = "SGVsbG8gd29ybGQh"; // Base64 for "Hello world!"
         let hkey = Hkey::Base64(data.try_into().expect("Failed to allocate Hkey::Base64"));
 
-        let compact = hkey.compact(&store).unwrap();
-        let restored = Hkey::from_compact(&compact).unwrap();
+        let compact = hkey.compact(&store).expect("Failed to compact Hkey");
+        let restored = Hkey::from_compact(&compact).expect("Failed to restore Hkey");
 
         assert_eq!(hkey.to_string(), restored.to_string());
     }
@@ -81,86 +83,90 @@ mod tests {
     fn test_direct_variant_roundtrip() {
         let store = InMemoryStore::default();
 
-        let hkey = Hkey::Direct(Hash::hash(b"Hello, world!").unwrap());
+        let hkey = Hkey::Direct(Hash::hash(b"Hello, world!").expect("Failed to hash data"));
 
-        let compact = hkey.compact(&store).unwrap();
-        let restored = Hkey::from_compact(&compact).unwrap();
+        let compact = hkey.compact(&store).expect("Failed to compact Hkey");
+        let restored = Hkey::from_compact(&compact).expect("Failed to restore Hkey");
 
         assert_eq!(hkey, restored);
         // Verify the hash matches.
-        if let Hkey::Direct(h) = &restored {
-            assert_eq!(h.to_string(), hkey.to_string());
-        } else {
-            panic!("Expected Direct variant");
+        let h = match &restored {
+            Hkey::Direct(h) => Some(h),
+            _ => None,
         }
+        .expect("Expected Direct variant");
+        assert_eq!(h.to_string(), hkey.to_string());
     }
 
     #[test]
-    fn test_encrypted_variant_roundtrip() -> Result<(), Box<dyn Error>> {
+    fn test_encrypted_variant_roundtrip() {
         let store = InMemoryStore::default();
         let data = b"Encrypted data".repeat(20);
-        let hkey = store.put(&data).unwrap();
+        let hkey = store.put(&data).expect("Failed to put encrypted data");
 
-        let Hkey::Encrypted(hash, key) = &hkey else {
-            panic!("Expected an Encrypted Hkey");
-        };
+        let (hash, key) = match &hkey {
+            Hkey::Encrypted(hash, key) => Some((hash, key)),
+            _ => None,
+        }
+        .expect("Expected an Encrypted Hkey");
 
-        let compact = hkey.compact(&store).unwrap();
-        let restored = Hkey::from_compact(&compact).unwrap();
+        let compact = hkey.compact(&store).expect("Failed to compact Hkey");
+        let restored = Hkey::from_compact(&compact).expect("Failed to restore Hkey");
 
         assert_eq!(hkey, restored);
         // Verify hashes.
-        if let Hkey::Encrypted(data_h, key_h) = &restored {
-            assert_eq!(data_h, hash);
-            assert_eq!(key_h, key);
-            Ok(())
-        } else {
-            panic!("Expected Encrypted variant");
+        let (data_h, key_h) = match &restored {
+            Hkey::Encrypted(data_h, key_h) => Some((data_h, key_h)),
+            _ => None,
         }
+        .expect("Expected Encrypted variant");
+        assert_eq!(data_h, hash);
+        assert_eq!(key_h, key);
     }
 
     #[test]
     fn test_listref_variant_roundtrip() {
         let store = InMemoryStore::default();
         let data = b"List ref data".repeat(2000);
-        let hkey =
-            Hkey::parse(store.put(&data).unwrap().to_string()).expect("Failed to parse Hkey");
+        let hkey = Hkey::parse(store.put(&data).expect("Failed to put data").to_string())
+            .expect("Failed to parse Hkey");
 
-        let Hkey::ListRef(data_hash, key_hash) = &hkey else {
-            panic!("Expected Hkey::ListRef, got {hkey:?}");
-        };
+        let (data_hash, key_hash) = match &hkey {
+            Hkey::ListRef(data_hash, key_hash) => Some((data_hash, key_hash)),
+            _ => None,
+        }
+        .expect("Expected Hkey::ListRef");
 
-        let compact = hkey.compact(&store).unwrap();
-        let restored = Hkey::from_compact(&compact).unwrap();
+        let compact = hkey.compact(&store).expect("Failed to compact Hkey");
+        let restored = Hkey::from_compact(&compact).expect("Failed to restore Hkey");
 
         assert_eq!(hkey, restored);
         // Verify hashes.
-        if let Hkey::ListRef(data_h, key_h) = &restored {
-            assert_eq!(data_h, data_hash);
-            assert_eq!(key_h, key_hash);
-        } else {
-            panic!("Expected ListRef variant");
+        let (data_h, key_h) = match &restored {
+            Hkey::ListRef(data_h, key_h) => Some((data_h, key_h)),
+            _ => None,
         }
+        .expect("Expected ListRef variant");
+        assert_eq!(data_h, data_hash);
+        assert_eq!(key_h, key_hash);
     }
 
     #[test]
-    fn test_longhkeyexpanded_variant_roundtrip() -> Result<(), Box<dyn Error>> {
+    fn test_longhkeyexpanded_variant_roundtrip() {
         let store = InMemoryStore::default();
 
-        let mock_long_expanded = Arc::new(LongHkeyExpanded::default()).update(
-            &store,
-            &b"Hello, world".repeat(200),
-            0..5000,
-        )?;
+        let mock_long_expanded = Arc::new(LongHkeyExpanded::default())
+            .update(&store, &b"Hello, world".repeat(200), 0..5000)
+            .expect("Failed to update LongHkeyExpanded");
 
-        let hkey = Hkey::LongHkeyExpanded(mock_long_expanded).shrink(&store)?;
+        let hkey = Hkey::LongHkeyExpanded(mock_long_expanded)
+            .shrink(&store)
+            .expect("Failed to shrink LongHkeyExpanded");
 
-        let compact = hkey.compact(&store).unwrap();
-        let restored = Hkey::from_compact(&compact).unwrap();
+        let compact = hkey.compact(&store).expect("Failed to compact Hkey");
+        let restored = Hkey::from_compact(&compact).expect("Failed to restore Hkey");
 
         assert_eq!(hkey.to_string(), restored.to_string());
-
-        Ok(())
     }
 
     #[test]
@@ -179,21 +185,21 @@ mod tests {
         let empty_data = vec![];
         let hkey = Hkey::from_raw(&empty_data).expect("Failed to allocate Hkey::Raw");
 
-        let compact = hkey.compact(&store).unwrap();
+        let compact = hkey.compact(&store).expect("Failed to compact Hkey");
 
-        let restored = Hkey::from_compact(&compact).unwrap();
+        let restored = Hkey::from_compact(&compact).expect("Failed to restore Hkey");
         assert_eq!(hkey, restored);
     }
 
     #[test]
     fn test_direct_missing_in_store() {
         let store = InMemoryStore::default();
-        let missing_hash = Hash::hash(b"missing").unwrap();
+        let missing_hash = Hash::hash(b"missing").expect("Failed to hash data");
         let hkey = Hkey::Direct(missing_hash);
 
         // compact should succeed even if not in store, as it just stores the hash.
-        let compact = hkey.compact(&store).unwrap();
-        let restored = Hkey::from_compact(&compact).unwrap();
+        let compact = hkey.compact(&store).expect("Failed to compact Hkey");
+        let restored = Hkey::from_compact(&compact).expect("Failed to restore Hkey");
 
         assert_eq!(hkey, restored);
         // Note: Actual data retrieval would fail if used, but compact/from_compact just handles the key.

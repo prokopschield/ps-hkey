@@ -13,6 +13,7 @@ impl Hkey {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use std::sync::Arc;
 
@@ -47,7 +48,7 @@ mod tests {
     }
 
     fn canonize_hash(hash: impl AsRef<[u8]>) -> Hash {
-        Hash::validate(hash.as_ref()).unwrap()
+        Hash::validate(hash.as_ref()).expect("Failed to validate hash")
     }
 
     fn canonize_hkey(h: Hkey) -> Hkey {
@@ -113,12 +114,11 @@ mod tests {
     // Produce deterministic byte patterns to exercise encoding.
     fn bytes_pattern(len: usize, seed: u8) -> Arc<[u8]> {
         let mut v = Vec::with_capacity(len);
-        for i in 0..len {
-            let b = seed
-                .wrapping_mul(31)
-                .wrapping_add((i as u8).wrapping_mul(17))
-                ^ 0xA5;
+        let mut step = 0u8;
+        for _ in 0..len {
+            let b = seed.wrapping_mul(31).wrapping_add(step.wrapping_mul(17)) ^ 0xA5;
             v.push(b);
+            step = step.wrapping_add(1);
         }
         v.into()
     }
@@ -205,28 +205,29 @@ mod tests {
     // Raw -> Base64 canonicalization
     // ------------------------
 
-    fn assert_raw_canonicalizes_to_base64(raw: Arc<[u8]>) {
-        let expected = ps_base64::encode(&raw);
+    fn assert_raw_canonicalizes_to_base64(raw: &[u8]) {
+        let expected = ps_base64::encode(raw);
         let canon = assert_stable_after_first_canonicalization(Hkey::Raw(
-            (&*raw).try_into().expect("Failed to allocate ArrayVec"),
+            raw.try_into().expect("Failed to allocate ArrayVec"),
         ));
-        match canon {
-            Hkey::Base64(s) => {
-                assert_eq!(
-                    s.as_ref(),
-                    expected,
-                    "Raw must canonicalize to Base64 with Hkey alphabet"
-                );
-            }
-            other => panic!("Raw must canonicalize to Base64, got {other:?}"),
+        assert!(
+            matches!(canon, Hkey::Base64(_)),
+            "Raw must canonicalize to Base64, got {canon:?}"
+        );
+        if let Hkey::Base64(s) = canon {
+            assert_eq!(
+                s.as_ref(),
+                expected,
+                "Raw must canonicalize to Base64 with Hkey alphabet"
+            );
         }
     }
 
     #[test]
     fn raw_len1_canonicalizes_to_base64() {
         // len = 1, exhaustive over all 256 possible bytes
-        for b in 0u16..=255 {
-            assert_raw_canonicalizes_to_base64(vec![b as u8].into());
+        for b in u8::MIN..=u8::MAX {
+            assert_raw_canonicalizes_to_base64(&[b]);
         }
     }
 
@@ -237,16 +238,21 @@ mod tests {
 
         for &len in &lengths {
             for &seed in &seeds {
-                assert_raw_canonicalizes_to_base64(bytes_pattern(len, seed));
+                let bytes = bytes_pattern(len, seed);
+                assert_raw_canonicalizes_to_base64(&bytes);
             }
         }
 
         // Alternating / extreme bytes
         for &len in &[2usize, 8, 16, 32, MAX_SIZE_RAW] {
-            assert_raw_canonicalizes_to_base64(vec![0x00; len].into());
-            assert_raw_canonicalizes_to_base64(vec![0xFF; len].into());
-            assert_raw_canonicalizes_to_base64(alternating(len, 0x00, 0xFF));
-            assert_raw_canonicalizes_to_base64(alternating(len, 0xAA, 0x55));
+            let zeroes = vec![0x00; len];
+            let ones = vec![0xFF; len];
+            let alt_a = alternating(len, 0x00, 0xFF);
+            let alt_b = alternating(len, 0xAA, 0x55);
+            assert_raw_canonicalizes_to_base64(&zeroes);
+            assert_raw_canonicalizes_to_base64(&ones);
+            assert_raw_canonicalizes_to_base64(&alt_a);
+            assert_raw_canonicalizes_to_base64(&alt_b);
         }
     }
 
@@ -261,11 +267,16 @@ mod tests {
             let raw: Arc<[u8]> = vec![first, 0, 0].into();
             let expected = ps_base64::encode(&raw);
             let canon = assert_stable_after_first_canonicalization(Hkey::Raw(
-                (&*raw).try_into().expect("Failed to allocate ArrayVec"),
+                raw.as_ref()
+                    .try_into()
+                    .expect("Failed to allocate ArrayVec"),
             ));
-            match canon {
-                Hkey::Base64(s) => assert_eq!(s.as_ref(), expected),
-                other => panic!("Expected Base64, got {other:?}"),
+            assert!(
+                matches!(canon, Hkey::Base64(_)),
+                "Expected Base64, got {canon:?}"
+            );
+            if let Hkey::Base64(s) = canon {
+                assert_eq!(s.as_ref(), expected);
             }
         }
     }
@@ -295,13 +306,16 @@ mod tests {
             let canonical = ps_base64::encode(&data);
             let h = Hkey::Base64(arrstr(&canonical));
             let canon = assert_stable_after_first_canonicalization(h);
-            match canon {
-                Hkey::Base64(s) => assert_eq!(
+            assert!(
+                matches!(canon, Hkey::Base64(_)),
+                "Base64 should remain Base64, got {canon:?}"
+            );
+            if let Hkey::Base64(s) = canon {
+                assert_eq!(
                     s.as_ref(),
                     canonical,
                     "Canonical Base64 should remain unchanged"
-                ),
-                other => panic!("Base64 should remain Base64, got {other:?}"),
+                );
             }
         }
     }
@@ -313,13 +327,16 @@ mod tests {
             for alt in alt_base64_spellings(&canonical) {
                 let h = Hkey::Base64(arrstr(&alt));
                 let canon = assert_stable_after_first_canonicalization(h);
-                match canon {
-                    Hkey::Base64(s) => assert_eq!(
+                assert!(
+                    matches!(canon, Hkey::Base64(_)),
+                    "Base64 should remain Base64, got {canon:?}"
+                );
+                if let Hkey::Base64(s) = canon {
+                    assert_eq!(
                         s.as_ref(),
                         canonical,
                         "Non-canonical Base64 must normalize to Hkey alphabet: {s} vs. {canonical}"
-                    ),
-                    other => panic!("Base64 should remain Base64, got {other:?}"),
+                    );
                 }
             }
         }
@@ -349,7 +366,7 @@ mod tests {
         // A few more hash inputs from patterns
         for &len in &[1usize, 7, 8, 15, 16, 31, 32] {
             let d = bytes_pattern(len, 0xC3);
-            let h = Hkey::Direct(mk_hash(&*d));
+            let h = Hkey::Direct(mk_hash(&d));
             let canon = assert_stable_after_first_canonicalization(h.clone());
             assert_eq!(canon, h, "Direct should remain identical");
         }
