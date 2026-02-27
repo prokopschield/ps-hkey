@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex, PoisonError},
 };
 
-use ps_datachunk::{DataChunk, OwnedDataChunk, PsDataChunkError};
+use ps_datachunk::{DataChunk, DataChunkError, OwnedDataChunk};
 use ps_hash::{Hash, HashError};
 
 use crate::PsHkeyError;
@@ -18,7 +18,7 @@ pub struct InMemoryStore {
 #[derive(thiserror::Error, Debug)]
 pub enum InMemoryStoreError {
     #[error(transparent)]
-    DataChunk(#[from] PsDataChunkError),
+    DataChunk(#[from] DataChunkError),
     #[error(transparent)]
     Hash(#[from] HashError),
     #[error(transparent)]

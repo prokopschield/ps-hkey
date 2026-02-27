@@ -19,8 +19,8 @@ pub use long::LongHkey;
 pub use long::LongHkeyExpanded;
 use ps_datachunk::Bytes;
 use ps_datachunk::DataChunk;
+use ps_datachunk::DataChunkError;
 use ps_datachunk::OwnedDataChunk;
-use ps_datachunk::PsDataChunkError;
 use ps_datachunk::SerializedDataChunk;
 pub use ps_hash::Hash;
 use ps_promise::PromiseRejection;
@@ -172,7 +172,7 @@ impl Hkey {
     pub fn resolve<'a, C, E, S>(&self, store: &'a S) -> TResult<Bytes, E>
     where
         C: DataChunk,
-        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
+        E: From<DataChunkError> + From<PsHkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let chunk = match self {
@@ -197,7 +197,7 @@ impl Hkey {
     ) -> TResult<SerializedDataChunk, E>
     where
         C: DataChunk,
-        E: From<PsDataChunkError>,
+        E: From<DataChunkError>,
         S: Store<Chunk<'a> = C, Error = E>,
     {
         let encrypted = store.get(hash)?;
@@ -209,7 +209,7 @@ impl Hkey {
     pub fn resolve_list_ref<'a, C, E, S>(hash: &Hash, key: &Hash, store: &'a S) -> TResult<Bytes, E>
     where
         C: DataChunk,
-        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
+        E: From<DataChunkError> + From<PsHkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let list_bytes = Self::resolve_encrypted(hash, key, store)?;
@@ -222,7 +222,7 @@ impl Hkey {
     pub fn resolve_list<'a, C, E, S>(list: &[Self], store: &'a S) -> TResult<OwnedDataChunk, E>
     where
         C: DataChunk,
-        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
+        E: From<DataChunkError> + From<PsHkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         // Parallel iterator over the list
@@ -250,7 +250,7 @@ impl Hkey {
     ) -> TResult<Vec<u8>, E>
     where
         C: DataChunk,
-        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
+        E: From<DataChunkError> + From<PsHkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let mut to_skip = range.start;
@@ -283,7 +283,7 @@ impl Hkey {
     ) -> TResult<Vec<u8>, E>
     where
         C: DataChunk,
-        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
+        E: From<DataChunkError> + From<PsHkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let chunk = store.get(hash)?;
@@ -296,7 +296,7 @@ impl Hkey {
     pub fn resolve_slice<'a, C, E, S>(&self, store: &'a S, range: Range) -> TResult<Vec<u8>, E>
     where
         C: DataChunk,
-        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
+        E: From<DataChunkError> + From<PsHkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         match self {
@@ -326,7 +326,7 @@ impl Hkey {
     ) -> Pin<Box<dyn Future<Output = TResult<Bytes, E>> + Send + 'a>>
     where
         C: DataChunk + Send + Unpin,
-        E: From<PsDataChunkError> + From<PsHkeyError> + PromiseRejection + Send + 'a,
+        E: From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send + 'a,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         Box::pin(async move { self.resolve_async(store).await })
@@ -335,7 +335,7 @@ impl Hkey {
     pub async fn resolve_async<C, E, S>(&self, store: &S) -> TResult<Bytes, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<PsDataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
+        E: From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         let chunk = match self {
@@ -367,7 +367,7 @@ impl Hkey {
     ) -> TResult<SerializedDataChunk, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<PsDataChunkError> + PromiseRejection + Send,
+        E: From<DataChunkError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         let encrypted = store.get(hash).await?;
@@ -383,7 +383,7 @@ impl Hkey {
     ) -> TResult<Bytes, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<PsDataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
+        E: From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         let list_bytes = Self::resolve_encrypted_async(hash, key, store).await?;
@@ -397,7 +397,7 @@ impl Hkey {
     pub async fn resolve_list_async<'k, C, E, S>(list: &'k [Self], store: &S) -> TResult<Bytes, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<PsDataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
+        E: From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         // Iterator over the list
@@ -430,7 +430,7 @@ impl Hkey {
     ) -> TResult<Vec<u8>, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<PsDataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
+        E: From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         let chunk = store.get(hash).await?;
@@ -447,7 +447,7 @@ impl Hkey {
     ) -> TResult<Vec<u8>, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<PsDataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
+        E: From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         let mut to_skip = range.start;
@@ -479,7 +479,7 @@ impl Hkey {
     ) -> Pin<Box<dyn Future<Output = TResult<Vec<u8>, E>> + Send + 'a>>
     where
         C: DataChunk + Send + Unpin,
-        E: From<PsDataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
+        E: From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         Box::pin(async move { self.resolve_slice_async(store, range).await })
@@ -488,7 +488,7 @@ impl Hkey {
     pub async fn resolve_slice_async<C, E, S>(&self, store: &S, range: Range) -> TResult<Vec<u8>, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<PsDataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
+        E: From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         match self {

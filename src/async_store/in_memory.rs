@@ -1,4 +1,4 @@
-use ps_datachunk::{DataChunk, OwnedDataChunk, PsDataChunkError};
+use ps_datachunk::{DataChunk, DataChunkError, OwnedDataChunk};
 use ps_hash::Hash;
 use ps_promise::{Promise, PromiseRejection};
 
@@ -36,7 +36,7 @@ impl AsyncStore for InMemoryAsyncStore {
 #[derive(thiserror::Error, Debug)]
 pub enum InMemoryAsyncStoreError {
     #[error(transparent)]
-    DataChunk(#[from] PsDataChunkError),
+    DataChunk(#[from] DataChunkError),
     #[error(transparent)]
     Hkey(#[from] PsHkeyError),
     #[error("The Promise was consumed more than once.")]

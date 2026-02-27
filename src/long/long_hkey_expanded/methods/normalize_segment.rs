@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use ps_datachunk::{DataChunk, PsDataChunkError};
+use ps_datachunk::{DataChunk, DataChunkError};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
@@ -30,7 +30,7 @@ impl LongHkeyExpanded {
     ) -> Result<Self, E>
     where
         C: DataChunk,
-        E: From<PsHkeyError> + From<PsDataChunkError> + Send,
+        E: From<PsHkeyError> + From<DataChunkError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         if range.end == range.start {

@@ -2,7 +2,7 @@ pub mod in_memory;
 pub mod mixed;
 
 use ps_cypher::validate_ecc;
-use ps_datachunk::{Bytes, DataChunk, OwnedDataChunk, PsDataChunkError};
+use ps_datachunk::{Bytes, DataChunk, DataChunkError, OwnedDataChunk};
 use ps_hash::Hash;
 use ps_promise::{Promise, PromiseRejection};
 
@@ -16,7 +16,7 @@ where
     Self: Clone + Sized + Send + Sync + 'static,
 {
     type Chunk: DataChunk + Send + Sync + Unpin;
-    type Error: From<PsDataChunkError> + From<PsHkeyError> + PromiseRejection + Send + Unpin;
+    type Error: From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send + Unpin;
 
     fn get(&self, hash: &Hash) -> Promise<Self::Chunk, Self::Error>;
 

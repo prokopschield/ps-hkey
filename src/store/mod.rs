@@ -2,7 +2,7 @@ pub mod combined;
 pub mod in_memory;
 
 use ps_cypher::validate_ecc;
-use ps_datachunk::{BorrowedDataChunk, DataChunk, PsDataChunkError};
+use ps_datachunk::{BorrowedDataChunk, DataChunk, DataChunkError};
 use ps_hash::Hash;
 
 use crate::{
@@ -18,7 +18,7 @@ where
     where
         Self: 'c;
 
-    type Error: From<PsDataChunkError> + From<PsHkeyError> + Send;
+    type Error: From<DataChunkError> + From<PsHkeyError> + Send;
 
     fn get<'a>(&'a self, hash: &Hash) -> Result<Self::Chunk<'a>, Self::Error>;
 

@@ -8,7 +8,7 @@ use std::{
 };
 
 use futures::future::try_join_all;
-use ps_datachunk::{DataChunk, PsDataChunkError};
+use ps_datachunk::{DataChunk, DataChunkError};
 use ps_promise::PromiseRejection;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
@@ -32,7 +32,7 @@ impl LongHkeyExpanded {
     pub fn resolve<'a, C, E, S>(&self, store: &'a S) -> Result<Vec<u8>, E>
     where
         C: DataChunk,
-        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
+        E: From<DataChunkError> + From<PsHkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         self.resolve_slice(store, 0..self.size)
@@ -41,7 +41,7 @@ impl LongHkeyExpanded {
     pub fn resolve_slice<'a, C, E, S>(&self, store: &'a S, range: Range) -> Result<Vec<u8>, E>
     where
         C: DataChunk,
-        E: From<PsDataChunkError> + From<PsHkeyError> + Send,
+        E: From<DataChunkError> + From<PsHkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         // Collect the data chunks in parallel
@@ -80,7 +80,7 @@ impl LongHkeyExpanded {
     pub async fn resolve_async<C, E, S>(&self, store: &S) -> Result<Vec<u8>, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<PsDataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
+        E: From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         self.resolve_slice_async(store, 0..self.size).await
@@ -89,7 +89,7 @@ impl LongHkeyExpanded {
     pub async fn resolve_slice_async<C, E, S>(&self, store: &S, range: Range) -> Result<Vec<u8>, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<PsDataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
+        E: From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         let futures = self

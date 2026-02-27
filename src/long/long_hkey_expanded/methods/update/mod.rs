@@ -6,7 +6,7 @@ use std::{
 };
 
 use helpers::{calculate_depth, calculate_segment_length};
-use ps_datachunk::{DataChunk, PsDataChunkError};
+use ps_datachunk::{DataChunk, DataChunkError};
 use ps_util::ToResult;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
@@ -25,7 +25,7 @@ impl LongHkeyExpanded {
     ) -> Result<Self, E>
     where
         C: DataChunk,
-        E: From<PsHkeyError> + From<PsDataChunkError> + Send,
+        E: From<PsHkeyError> + From<DataChunkError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let length = data.len().min(range.end - range.start);
@@ -115,7 +115,7 @@ impl LongHkeyExpanded {
     pub fn update<'a, C, E, S>(&self, store: &'a S, data: &[u8], range: Range) -> Result<Self, E>
     where
         C: DataChunk,
-        E: From<PsHkeyError> + From<PsDataChunkError> + Send,
+        E: From<PsHkeyError> + From<DataChunkError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let range = range.start..range.end.min(range.start + data.len());
