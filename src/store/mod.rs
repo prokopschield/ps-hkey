@@ -7,7 +7,7 @@ use ps_hash::Hash;
 
 use crate::{
     constants::{MAX_DECRYPTED_SIZE, MAX_ENCRYPTED_SIZE, MAX_SIZE_RAW},
-    Hkey, LongHkeyExpanded, PsHkeyError,
+    Hkey, HkeyError, LongHkeyExpanded,
 };
 
 pub trait Store
@@ -18,7 +18,7 @@ where
     where
         Self: 'c;
 
-    type Error: From<DataChunkError> + From<PsHkeyError> + Send;
+    type Error: From<DataChunkError> + From<HkeyError> + Send;
 
     fn get<'a>(&'a self, hash: &Hash) -> Result<Self::Chunk<'a>, Self::Error>;
 
@@ -27,7 +27,7 @@ where
     fn put(&self, data: &[u8]) -> Result<Hkey, Self::Error> {
         if data.len() <= MAX_SIZE_RAW {
             return Hkey::from_raw(data)
-                .map_err(PsHkeyError::ConstructionError)
+                .map_err(HkeyError::Construction)
                 .map_err(Into::into);
         }
 

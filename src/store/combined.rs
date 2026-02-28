@@ -3,10 +3,10 @@ use std::ops::{Deref, DerefMut};
 use ps_datachunk::{BorrowedDataChunk, DataChunk, DataChunkError, OwnedDataChunk};
 use ps_hash::Hash;
 
-use crate::{PsHkeyError, Store};
+use crate::{HkeyError, Store};
 
 pub trait DynStore: Send + Sync {
-    type Error: From<DataChunkError> + From<PsHkeyError> + Send + 'static;
+    type Error: From<DataChunkError> + From<HkeyError> + Send + 'static;
 
     fn get(&self, hash: &Hash) -> Result<OwnedDataChunk, Self::Error>;
     fn put_encrypted(&self, chunk: BorrowedDataChunk<'_>) -> Result<(), Self::Error>;
@@ -152,6 +152,6 @@ impl<E: CombinedStoreError> Store for CombinedStore<E, false> {
     }
 }
 
-pub trait CombinedStoreError: From<DataChunkError> + From<PsHkeyError> + Send + 'static {
+pub trait CombinedStoreError: From<DataChunkError> + From<HkeyError> + Send + 'static {
     fn no_stores() -> Self;
 }

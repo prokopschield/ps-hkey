@@ -8,7 +8,7 @@ use ps_promise::{Promise, PromiseRejection};
 
 use crate::{
     constants::{MAX_DECRYPTED_SIZE, MAX_ENCRYPTED_SIZE, MAX_SIZE_RAW},
-    Hkey, LongHkeyExpanded, PsHkeyError,
+    Hkey, HkeyError, LongHkeyExpanded,
 };
 
 pub trait AsyncStore
@@ -16,7 +16,7 @@ where
     Self: Clone + Sized + Send + Sync + 'static,
 {
     type Chunk: DataChunk + Send + Sync + Unpin;
-    type Error: From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send + Unpin;
+    type Error: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send + Unpin;
 
     fn get(&self, hash: &Hash) -> Promise<Self::Chunk, Self::Error>;
 
@@ -28,7 +28,7 @@ where
         Promise::new(async move {
             if data.len() <= MAX_SIZE_RAW {
                 return Hkey::from_raw(&data)
-                    .map_err(PsHkeyError::ConstructionError)
+                    .map_err(HkeyError::Construction)
                     .map_err(Into::into);
             }
 

@@ -11,10 +11,10 @@ use ps_datachunk::{DataChunk, DataChunkError, OwnedDataChunk};
 use ps_hash::Hash;
 use ps_promise::{Promise, PromiseRejection};
 
-use crate::{store::combined::DynStore, AsyncStore, PsHkeyError, Store};
+use crate::{store::combined::DynStore, AsyncStore, HkeyError, Store};
 
 pub trait DynAsyncStore: Send + Sync {
-    type Error: From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send + 'static;
+    type Error: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send + 'static;
 
     fn get(&self, hash: Arc<Hash>) -> Promise<OwnedDataChunk, Self::Error>;
     fn put_encrypted(&self, chunk: OwnedDataChunk) -> Promise<(), Self::Error>;
@@ -346,7 +346,7 @@ impl<E: MixedStoreError> AsyncStore for MixedStore<E, false> {
 }
 
 pub trait MixedStoreError:
-    Clone + From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send + 'static
+    Clone + From<DataChunkError> + From<HkeyError> + PromiseRejection + Send + 'static
 {
     fn no_stores() -> Self;
 }

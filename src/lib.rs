@@ -12,8 +12,8 @@ use arrayvec::ArrayVec;
 pub use async_store::AsyncStore;
 pub use constants::*;
 pub use error::HkeyConstructionError;
+pub use error::HkeyError;
 pub use error::HkeyFromCompactError;
-pub use error::PsHkeyError;
 pub use error::Result;
 pub use long::LongHkey;
 pub use long::LongHkeyExpanded;
@@ -117,12 +117,12 @@ impl Hkey {
 
     pub fn try_as_list(list: &[u8]) -> Result<Self> {
         let last_index = list.len() - 1;
-        let first_byte = *list.first().ok_or(PsHkeyError::FormatError)?;
-        let last_byte = *list.get(last_index).ok_or(PsHkeyError::FormatError)?;
+        let first_byte = *list.first().ok_or(HkeyError::Format)?;
+        let last_byte = *list.get(last_index).ok_or(HkeyError::Format)?;
         let content = &list[1..last_index];
 
         if first_byte != b'[' || last_byte != b']' {
-            Err(PsHkeyError::FormatError)?;
+            Err(HkeyError::Format)?;
         }
 
         let parts = content.split(|c| *c == b',');
@@ -161,18 +161,18 @@ impl Hkey {
 
     /// Transmutates Encrypted(Hash,Key) into ListRef(Hash,Key)
     /// # Errors
-    /// - [`PsHkeyError::EncryptedIntoListRefError`] if a different variant of [`Hkey`] is supplied
+    /// - [`HkeyError::EncryptedIntoListRef`] if a different variant of [`Hkey`] is supplied
     pub fn encrypted_into_list_ref(self) -> Result<Self> {
         match self {
             Self::Encrypted(hash, key) => Self::ListRef(hash, key).ok(),
-            hkey => PsHkeyError::EncryptedIntoListRefError(hkey).err(),
+            hkey => HkeyError::EncryptedIntoListRef(hkey).err(),
         }
     }
 
     pub fn resolve<'a, C, E, S>(&self, store: &'a S) -> TResult<Bytes, E>
     where
         C: DataChunk,
-        E: From<DataChunkError> + From<PsHkeyError> + Send,
+        E: From<DataChunkError> + From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let chunk = match self {
@@ -209,20 +209,20 @@ impl Hkey {
     pub fn resolve_list_ref<'a, C, E, S>(hash: &Hash, key: &Hash, store: &'a S) -> TResult<Bytes, E>
     where
         C: DataChunk,
-        E: From<DataChunkError> + From<PsHkeyError> + Send,
+        E: From<DataChunkError> + From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let list_bytes = Self::resolve_encrypted(hash, key, store)?;
 
         Self::parse(list_bytes.data_ref())
-            .map_err(PsHkeyError::ConstructionError)?
+            .map_err(HkeyError::Construction)?
             .resolve(store)
     }
 
     pub fn resolve_list<'a, C, E, S>(list: &[Self], store: &'a S) -> TResult<OwnedDataChunk, E>
     where
         C: DataChunk,
-        E: From<DataChunkError> + From<PsHkeyError> + Send,
+        E: From<DataChunkError> + From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         // Parallel iterator over the list
@@ -250,7 +250,7 @@ impl Hkey {
     ) -> TResult<Vec<u8>, E>
     where
         C: DataChunk,
-        E: From<DataChunkError> + From<PsHkeyError> + Send,
+        E: From<DataChunkError> + From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let mut to_skip = range.start;
@@ -283,12 +283,12 @@ impl Hkey {
     ) -> TResult<Vec<u8>, E>
     where
         C: DataChunk,
-        E: From<DataChunkError> + From<PsHkeyError> + Send,
+        E: From<DataChunkError> + From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let chunk = store.get(hash)?;
         let decrypted = chunk.decrypt(key)?;
-        let hkey = Self::parse(decrypted.data_ref()).map_err(PsHkeyError::ConstructionError)?;
+        let hkey = Self::parse(decrypted.data_ref()).map_err(HkeyError::Construction)?;
 
         hkey.resolve_slice(store, range)
     }
@@ -296,7 +296,7 @@ impl Hkey {
     pub fn resolve_slice<'a, C, E, S>(&self, store: &'a S, range: Range) -> TResult<Vec<u8>, E>
     where
         C: DataChunk,
-        E: From<DataChunkError> + From<PsHkeyError> + Send,
+        E: From<DataChunkError> + From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         match self {
@@ -315,7 +315,7 @@ impl Hkey {
                     return Ok(slice.to_vec());
                 }
 
-                PsHkeyError::RangeError(bytes.len()).err()?
+                HkeyError::Range(bytes.len()).err()?
             }
         }
     }
@@ -326,7 +326,7 @@ impl Hkey {
     ) -> Pin<Box<dyn Future<Output = TResult<Bytes, E>> + Send + 'a>>
     where
         C: DataChunk + Send + Unpin,
-        E: From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send + 'a,
+        E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send + 'a,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         Box::pin(async move { self.resolve_async(store).await })
@@ -335,7 +335,7 @@ impl Hkey {
     pub async fn resolve_async<C, E, S>(&self, store: &S) -> TResult<Bytes, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
+        E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         let chunk = match self {
@@ -383,13 +383,13 @@ impl Hkey {
     ) -> TResult<Bytes, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
+        E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         let list_bytes = Self::resolve_encrypted_async(hash, key, store).await?;
 
         Self::parse(list_bytes.data_ref())
-            .map_err(PsHkeyError::ConstructionError)?
+            .map_err(HkeyError::Construction)?
             .resolve_async_box(store)
             .await
     }
@@ -397,7 +397,7 @@ impl Hkey {
     pub async fn resolve_list_async<'k, C, E, S>(list: &'k [Self], store: &S) -> TResult<Bytes, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
+        E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         // Iterator over the list
@@ -430,12 +430,12 @@ impl Hkey {
     ) -> TResult<Vec<u8>, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
+        E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         let chunk = store.get(hash).await?;
         let decrypted = chunk.decrypt(key)?;
-        let hkey = Self::parse(decrypted.data_ref()).map_err(PsHkeyError::ConstructionError)?;
+        let hkey = Self::parse(decrypted.data_ref()).map_err(HkeyError::Construction)?;
 
         hkey.resolve_slice_async_box(store, range).await
     }
@@ -447,7 +447,7 @@ impl Hkey {
     ) -> TResult<Vec<u8>, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
+        E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         let mut to_skip = range.start;
@@ -479,7 +479,7 @@ impl Hkey {
     ) -> Pin<Box<dyn Future<Output = TResult<Vec<u8>, E>> + Send + 'a>>
     where
         C: DataChunk + Send + Unpin,
-        E: From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
+        E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         Box::pin(async move { self.resolve_slice_async(store, range).await })
@@ -488,7 +488,7 @@ impl Hkey {
     pub async fn resolve_slice_async<C, E, S>(&self, store: &S, range: Range) -> TResult<Vec<u8>, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
+        E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         match self {
@@ -515,7 +515,7 @@ impl Hkey {
                     return Ok(slice.to_vec());
                 }
 
-                PsHkeyError::RangeError(bytes.len()).err()?
+                HkeyError::Range(bytes.len()).err()?
             }
         }
     }
@@ -523,7 +523,7 @@ impl Hkey {
     pub fn shrink_or_not<'a, C, E, S>(&self, store: &S) -> TResult<Option<Self>, E>
     where
         C: DataChunk,
-        E: From<PsHkeyError> + Send,
+        E: From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         match self {
@@ -561,7 +561,7 @@ impl Hkey {
     pub async fn shrink_or_not_async<C, E, S>(&self, store: &S) -> TResult<Option<Self>, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<PsHkeyError> + PromiseRejection,
+        E: From<HkeyError> + PromiseRejection,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         match self {
@@ -602,7 +602,7 @@ impl Hkey {
             Self::LongHkeyExpanded(lhkey) => {
                 match store.put(Bytes::from_owner(lhkey.to_string())).await? {
                     Self::Encrypted(hash, key) => Self::ListRef(hash, key).some(),
-                    _ => Err(PsHkeyError::StorageError)?,
+                    _ => Err(HkeyError::Storage)?,
                 }
             }
             _ => None,
@@ -613,7 +613,7 @@ impl Hkey {
     pub fn shrink_into<'a, C, E, S>(self, store: &S) -> TResult<Self, E>
     where
         C: DataChunk,
-        E: From<PsHkeyError> + Send,
+        E: From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         (self.shrink_or_not(store)?).map_or_else(|| Ok(self), Ok)
@@ -622,7 +622,7 @@ impl Hkey {
     pub async fn shrink_into_async<C, E, S>(self, store: &S) -> TResult<Self, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<PsHkeyError> + PromiseRejection + Send,
+        E: From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         (self.shrink_or_not_async(store).await?).map_or_else(|| Ok(self), Ok)
@@ -631,7 +631,7 @@ impl Hkey {
     pub fn shrink<'a, C, E, S>(&self, store: &S) -> TResult<Self, E>
     where
         C: DataChunk,
-        E: From<PsHkeyError> + Send,
+        E: From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         (self.shrink_or_not(store)?).map_or_else(|| Ok(self.clone()), Ok)
@@ -640,7 +640,7 @@ impl Hkey {
     pub async fn shrink_async<C, E, S>(&self, store: &S) -> TResult<Self, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<PsHkeyError> + PromiseRejection + Send,
+        E: From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         (self.shrink_or_not_async(store).await?).map_or_else(|| Ok(self.clone()), Ok)
@@ -649,7 +649,7 @@ impl Hkey {
     pub fn shrink_to_string<'a, C, E, S>(&self, store: &S) -> TResult<String, E>
     where
         C: DataChunk,
-        E: From<PsHkeyError> + Send,
+        E: From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         self.shrink(store)?.to_string().ok()
@@ -658,7 +658,7 @@ impl Hkey {
     pub async fn shrink_to_string_async<C, E, S>(&self, store: &S) -> TResult<String, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<PsHkeyError> + PromiseRejection + Send,
+        E: From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         self.shrink_async(store).await?.to_string().ok()

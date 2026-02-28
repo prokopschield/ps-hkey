@@ -11,7 +11,7 @@ use crate::{
         },
         LongHkeyExpanded,
     },
-    AsyncStore, Hkey, PsHkeyError, Range,
+    AsyncStore, Hkey, HkeyError, Range,
 };
 
 impl LongHkeyExpanded {
@@ -21,7 +21,7 @@ impl LongHkeyExpanded {
     ) -> Pin<Box<dyn Future<Output = Result<Self, E>> + Send + Sync + 'a>>
     where
         C: DataChunk + Send + Unpin,
-        E: From<PsHkeyError> + PromiseRejection + Send,
+        E: From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         Box::pin(async move { Self::from_blob_async(store, data).await })
@@ -30,7 +30,7 @@ impl LongHkeyExpanded {
     pub async fn from_blob_async<C, E, S>(store: &S, data: &[u8]) -> Result<Self, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<PsHkeyError> + PromiseRejection + Send,
+        E: From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         let depth = calculate_depth(0, data.len());

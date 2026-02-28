@@ -1,13 +1,13 @@
 use ps_datachunk::DataChunk;
 
-use crate::{long::LongHkeyExpanded, Hkey, PsHkeyError, Store};
+use crate::{long::LongHkeyExpanded, Hkey, HkeyError, Store};
 
 impl LongHkeyExpanded {
     /// transforms this [`LongHkey`] into a [`Hkey::ListRef`]
     pub fn shrink<'a, C, E, S>(&self, store: &S) -> Result<Hkey, E>
     where
         C: DataChunk,
-        E: From<PsHkeyError> + Send,
+        E: From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         Ok(self.store(store)?.into())

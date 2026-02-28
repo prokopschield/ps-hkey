@@ -6,7 +6,7 @@ use std::{
 use ps_datachunk::{DataChunk, DataChunkError, OwnedDataChunk};
 use ps_hash::{Hash, HashError};
 
-use crate::PsHkeyError;
+use crate::HkeyError;
 
 use super::Store;
 
@@ -22,7 +22,7 @@ pub enum InMemoryStoreError {
     #[error(transparent)]
     Hash(#[from] HashError),
     #[error(transparent)]
-    Hkey(#[from] PsHkeyError),
+    Hkey(#[from] HkeyError),
     #[error("The internal mutex was poisoned.")]
     MutexPoison,
     #[error("The data with this hash was not found.")]

@@ -5,33 +5,33 @@ use std::str::Utf8Error;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum PsHkeyError {
+pub enum HkeyError {
     #[error(transparent)]
-    ConstructionError(#[from] HkeyConstructionError),
+    Construction(#[from] HkeyConstructionError),
     #[error(transparent)]
-    HashError(#[from] HashError),
+    Hash(#[from] HashError),
     #[error(transparent)]
-    HashValidationError(#[from] HashValidationError),
+    HashValidation(#[from] HashValidationError),
     #[error(transparent)]
-    ParseIntError(#[from] ParseIntError),
+    ParseInt(#[from] ParseIntError),
     #[error(transparent)]
-    DataChunkError(#[from] DataChunkError),
+    DataChunk(#[from] DataChunkError),
     #[error(transparent)]
-    Utf8Error(#[from] Utf8Error),
+    Utf8(#[from] Utf8Error),
 
     #[error("Invalid hkey format")]
-    FormatError,
+    Format,
     #[error("Invalid range, entity is of size {0}")]
-    RangeError(usize),
+    Range(usize),
     #[error("Failed to store with external storage function")]
-    StorageError,
+    Storage,
     #[error("While storing a List or LongHkey, expected Hkey::Encrypted, got {0}")]
-    EncryptedIntoListRefError(crate::Hkey),
+    EncryptedIntoListRef(crate::Hkey),
     #[error("Reached unreachable code.")]
-    UnreachableCodeReached,
+    Unreachable,
 }
 
-pub type Result<T, E = PsHkeyError> = std::result::Result<T, E>;
+pub type Result<T, E = HkeyError> = std::result::Result<T, E>;
 
 #[derive(Error, Debug)]
 pub enum HkeyConstructionError {

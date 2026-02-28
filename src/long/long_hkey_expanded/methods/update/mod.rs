@@ -12,7 +12,7 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
     long::{long_hkey_expanded::constants::LHKEY_SEGMENT_MAX_LENGTH, LongHkeyExpanded},
-    Hkey, PsHkeyError, Range, Store,
+    Hkey, HkeyError, Range, Store,
 };
 
 impl LongHkeyExpanded {
@@ -25,7 +25,7 @@ impl LongHkeyExpanded {
     ) -> Result<Self, E>
     where
         C: DataChunk,
-        E: From<PsHkeyError> + From<DataChunkError> + Send,
+        E: From<HkeyError> + From<DataChunkError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let length = data.len().min(range.end - range.start);
@@ -103,7 +103,7 @@ impl LongHkeyExpanded {
                 }
 
                 // all variants have been exhausted
-                Err(PsHkeyError::UnreachableCodeReached)?
+                Err(HkeyError::Unreachable)?
             })
             .collect();
 
@@ -115,7 +115,7 @@ impl LongHkeyExpanded {
     pub fn update<'a, C, E, S>(&self, store: &'a S, data: &[u8], range: Range) -> Result<Self, E>
     where
         C: DataChunk,
-        E: From<PsHkeyError> + From<DataChunkError> + Send,
+        E: From<HkeyError> + From<DataChunkError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let range = range.start..range.end.min(range.start + data.len());

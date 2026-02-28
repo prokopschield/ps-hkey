@@ -5,7 +5,7 @@ use ps_hash::Hash;
 use ps_promise::PromiseRejection;
 use ps_util::ToResult;
 
-use crate::{AsyncStore, Hkey, PsHkeyError, Store};
+use crate::{AsyncStore, Hkey, HkeyError, Store};
 
 use super::LongHkeyExpanded;
 
@@ -47,40 +47,40 @@ impl LongHkey {
         &self.key
     }
 
-    pub fn expand_from_lhkey_str(expanded_data: &[u8]) -> Result<LongHkeyExpanded, PsHkeyError> {
+    pub fn expand_from_lhkey_str(expanded_data: &[u8]) -> Result<LongHkeyExpanded, HkeyError> {
         if expanded_data.len() < 6 {
             // empty array: {0;0;}
-            Err(PsHkeyError::FormatError)?;
+            Err(HkeyError::Format)?;
         }
 
         if expanded_data[0] != b'{' || expanded_data[expanded_data.len() - 1] != b'}' {
-            Err(PsHkeyError::FormatError)?;
+            Err(HkeyError::Format)?;
         }
 
         let parts_data = &expanded_data[1..expanded_data.len() - 1];
         let parts_data = std::str::from_utf8(parts_data);
-        let parts_data = parts_data.map_err(PsHkeyError::from)?;
+        let parts_data = parts_data.map_err(HkeyError::from)?;
 
         let parts: Vec<&str> = parts_data.split(';').collect();
 
         if parts.len() != 3 {
-            Err(PsHkeyError::FormatError)?;
+            Err(HkeyError::Format)?;
         }
 
-        let depth: u32 = parts[0].parse().map_err(PsHkeyError::from)?;
-        let size: usize = parts[1].parse().map_err(PsHkeyError::from)?;
+        let depth: u32 = parts[0].parse().map_err(HkeyError::from)?;
+        let size: usize = parts[1].parse().map_err(HkeyError::from)?;
 
         let parts = parts[2].split(',').map(|part| {
-            let (range, hkey) = part.split_once(':').ok_or(PsHkeyError::FormatError)?;
-            let (start, end) = range.split_once('-').ok_or(PsHkeyError::FormatError)?;
+            let (range, hkey) = part.split_once(':').ok_or(HkeyError::Format)?;
+            let (start, end) = range.split_once('-').ok_or(HkeyError::Format)?;
             let start: usize = start.parse()?;
             let end: usize = end.parse()?;
-            let hkey: Hkey = Hkey::parse(hkey).map_err(PsHkeyError::ConstructionError)?;
+            let hkey: Hkey = Hkey::parse(hkey).map_err(HkeyError::Construction)?;
             #[allow(clippy::range_plus_one)]
             Ok((start..end + 1, hkey))
         });
 
-        let parts: Result<Vec<_>, PsHkeyError> = parts.collect();
+        let parts: Result<Vec<_>, HkeyError> = parts.collect();
         let parts = parts?.into_boxed_slice().into();
 
         LongHkeyExpanded::new(depth, size, parts).ok()
@@ -90,7 +90,7 @@ impl LongHkey {
     pub fn expand_from_lhkey_encrypted_str(
         &self,
         encrypted: &[u8],
-    ) -> Result<LongHkeyExpanded, PsHkeyError> {
+    ) -> Result<LongHkeyExpanded, HkeyError> {
         let lhkey_str = decrypt(encrypted, &self.key)?;
 
         Self::expand_from_lhkey_str(lhkey_str.data_ref())
@@ -100,7 +100,7 @@ impl LongHkey {
     pub fn expand<'a, C, E, S>(&self, store: &'a S) -> Result<LongHkeyExpanded, E>
     where
         C: DataChunk,
-        E: From<PsHkeyError> + Send,
+        E: From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         let encrypted = store.get(&self.hash)?;
@@ -112,7 +112,7 @@ impl LongHkey {
     pub async fn expand_async<C, E, S>(&self, resolver: &S) -> Result<LongHkeyExpanded, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<PsHkeyError> + PromiseRejection + Send,
+        E: From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         let future = resolver.get(&self.hash);

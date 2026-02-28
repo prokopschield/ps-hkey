@@ -4,7 +4,7 @@ use ps_promise::{Promise, PromiseRejection};
 
 use crate::{
     store::in_memory::{InMemoryStore, InMemoryStoreError},
-    PsHkeyError, Store,
+    HkeyError, Store,
 };
 
 use super::AsyncStore;
@@ -38,7 +38,7 @@ pub enum InMemoryAsyncStoreError {
     #[error(transparent)]
     DataChunk(#[from] DataChunkError),
     #[error(transparent)]
-    Hkey(#[from] PsHkeyError),
+    Hkey(#[from] HkeyError),
     #[error("The Promise was consumed more than once.")]
     PromiseConsumedAlready,
     #[error(transparent)]

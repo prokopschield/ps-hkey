@@ -5,7 +5,7 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
     long::{long_hkey_expanded::constants::LHKEY_SEGMENT_MAX_LENGTH, LongHkeyExpanded},
-    Hkey, PsHkeyError, Range, Store,
+    Hkey, HkeyError, Range, Store,
 };
 
 use super::update::helpers::{calculate_depth, calculate_segment_length};
@@ -30,7 +30,7 @@ impl LongHkeyExpanded {
     ) -> Result<Self, E>
     where
         C: DataChunk,
-        E: From<PsHkeyError> + From<DataChunkError> + Send,
+        E: From<HkeyError> + From<DataChunkError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         if range.end == range.start {

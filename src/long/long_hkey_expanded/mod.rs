@@ -12,7 +12,7 @@ use ps_datachunk::{DataChunk, DataChunkError};
 use ps_promise::PromiseRejection;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
-use crate::{AsyncStore, Hkey, PsHkeyError, Range, Store};
+use crate::{AsyncStore, Hkey, HkeyError, Range, Store};
 
 use super::LongHkey;
 
@@ -32,7 +32,7 @@ impl LongHkeyExpanded {
     pub fn resolve<'a, C, E, S>(&self, store: &'a S) -> Result<Vec<u8>, E>
     where
         C: DataChunk,
-        E: From<DataChunkError> + From<PsHkeyError> + Send,
+        E: From<DataChunkError> + From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         self.resolve_slice(store, 0..self.size)
@@ -41,7 +41,7 @@ impl LongHkeyExpanded {
     pub fn resolve_slice<'a, C, E, S>(&self, store: &'a S, range: Range) -> Result<Vec<u8>, E>
     where
         C: DataChunk,
-        E: From<DataChunkError> + From<PsHkeyError> + Send,
+        E: From<DataChunkError> + From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         // Collect the data chunks in parallel
@@ -80,7 +80,7 @@ impl LongHkeyExpanded {
     pub async fn resolve_async<C, E, S>(&self, store: &S) -> Result<Vec<u8>, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
+        E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         self.resolve_slice_async(store, 0..self.size).await
@@ -89,7 +89,7 @@ impl LongHkeyExpanded {
     pub async fn resolve_slice_async<C, E, S>(&self, store: &S, range: Range) -> Result<Vec<u8>, E>
     where
         C: DataChunk + Send + Unpin,
-        E: From<DataChunkError> + From<PsHkeyError> + PromiseRejection + Send,
+        E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
         let futures = self
