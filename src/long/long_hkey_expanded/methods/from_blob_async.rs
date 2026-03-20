@@ -18,7 +18,7 @@ impl LongHkeyExpanded {
     pub fn from_blob_async_box<'a, C, E, S>(
         store: &'a S,
         data: &'a [u8],
-    ) -> Pin<Box<dyn Future<Output = Result<Self, E>> + Send + Sync + 'a>>
+    ) -> Pin<Box<dyn Future<Output = Result<Self, E>> + Send + 'a>>
     where
         C: DataChunk + Send + Unpin,
         E: From<HkeyError> + PromiseRejection + Send,
