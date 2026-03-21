@@ -16,7 +16,7 @@ use crate::{store::combined::DynStore, AsyncStore, HkeyError, Store};
 pub trait DynAsyncStore: Send + Sync {
     type Error: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send + 'static;
 
-    fn get(&self, hash: Arc<Hash>) -> Promise<OwnedDataChunk, Self::Error>;
+    fn get(&self, hash: Hash) -> Promise<OwnedDataChunk, Self::Error>;
     fn put_encrypted(&self, chunk: OwnedDataChunk) -> Promise<(), Self::Error>;
 }
 
@@ -26,14 +26,10 @@ where
 {
     type Error = T::Error;
 
-    fn get(&self, hash: Arc<Hash>) -> Promise<OwnedDataChunk, Self::Error> {
+    fn get(&self, hash: Hash) -> Promise<OwnedDataChunk, Self::Error> {
         let store = self.clone();
 
-        Promise::new(async move {
-            let hash = hash;
-
-            Ok(AsyncStore::get(&store, &hash).await?.into_owned())
-        })
+        Promise::new(async move { Ok(AsyncStore::get(&store, &hash).await?.into_owned()) })
     }
 
     fn put_encrypted(&self, chunk: OwnedDataChunk) -> Promise<(), Self::Error> {
@@ -135,7 +131,7 @@ impl<E: MixedStoreError, const WRITE_TO_ALL: bool> MixedStore<E, WRITE_TO_ALL> {
         Err(last_err.unwrap_or_else(E::no_stores))
     }
 
-    fn get_async(&self, hash: &Arc<Hash>) -> Promise<OwnedDataChunk, E> {
+    fn get_async(&self, hash: &Hash) -> Promise<OwnedDataChunk, E> {
         let mut last_err = E::no_stores();
         let guard = self.read();
 
@@ -149,7 +145,7 @@ impl<E: MixedStoreError, const WRITE_TO_ALL: bool> MixedStore<E, WRITE_TO_ALL> {
         let promises: Vec<Promise<OwnedDataChunk, E>> = guard
             .async_stores
             .iter()
-            .map(|store| store.get(hash.clone()))
+            .map(|store| store.get(*hash))
             .collect();
 
         drop(guard);
@@ -247,10 +243,7 @@ impl<E: MixedStoreError> AsyncStore for MixedStore<E, true> {
     type Error = E;
 
     fn get(&self, hash: &Hash) -> Promise<Self::Chunk, Self::Error> {
-        let store = self.clone();
-        let hash = Arc::from(*hash);
-
-        Promise::new(async move { store.get_async(&hash).await })
+        self.get_async(hash)
     }
 
     fn put_encrypted<C: DataChunk>(&self, chunk: C) -> Promise<(), Self::Error> {
@@ -292,10 +285,7 @@ impl<E: MixedStoreError> AsyncStore for MixedStore<E, false> {
     type Error = E;
 
     fn get(&self, hash: &Hash) -> Promise<Self::Chunk, Self::Error> {
-        let store = self.clone();
-        let hash = Arc::from(*hash);
-
-        Promise::new(async move { store.get_async(&hash).await })
+        self.get_async(hash)
     }
 
     fn put_encrypted<C: DataChunk>(&self, chunk: C) -> Promise<(), Self::Error> {
