@@ -23,15 +23,16 @@ where
     fn put_encrypted<C: DataChunk>(&self, chunk: C) -> Promise<(), Self::Error>;
 
     fn put(&self, data: Bytes) -> Promise<Hkey, Self::Error> {
+        if data.len() <= MAX_SIZE_RAW {
+            return match Hkey::from_raw(&data) {
+                Ok(hkey) => Promise::resolve(hkey),
+                Err(err) => Promise::reject(Self::Error::from(HkeyError::Construction(err))),
+            };
+        }
+
         let this = self.clone();
 
         Promise::new(async move {
-            if data.len() <= MAX_SIZE_RAW {
-                return Hkey::from_raw(&data)
-                    .map_err(HkeyError::Construction)
-                    .map_err(Into::into);
-            }
-
             if data.len() <= MAX_ENCRYPTED_SIZE && validate_ecc(&data) {
                 let chunk = OwnedDataChunk::from_bytes(data)?;
                 let hash = chunk.hash();
