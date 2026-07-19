@@ -29,6 +29,12 @@ impl LongHkeyExpanded {
         Self { depth, size, parts }
     }
 
+    /// Returns the size of the represented buffer in bytes.
+    #[must_use]
+    pub const fn size(&self) -> usize {
+        self.size
+    }
+
     pub fn resolve<'a, C, E, S>(&self, store: &'a S) -> Result<Vec<u8>, E>
     where
         C: DataChunk,
