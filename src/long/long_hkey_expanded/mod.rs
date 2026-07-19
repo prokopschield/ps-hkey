@@ -83,20 +83,20 @@ impl LongHkeyExpanded {
         Ok(combined_result)
     }
 
-    pub async fn resolve_async<C, E, S>(&self, store: &S) -> Result<Vec<u8>, E>
+    pub async fn resolve_async<C, E, S>(&self, store: S) -> Result<Vec<u8>, E>
     where
         C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = E> + Sync,
+        S: AsyncStore<Chunk = C, Error = E>,
     {
         self.resolve_slice_async(store, 0..self.size).await
     }
 
-    pub async fn resolve_slice_async<C, E, S>(&self, store: &S, range: Range) -> Result<Vec<u8>, E>
+    pub async fn resolve_slice_async<C, E, S>(&self, store: S, range: Range) -> Result<Vec<u8>, E>
     where
         C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = E> + Sync,
+        S: AsyncStore<Chunk = C, Error = E>,
     {
         let futures = self
             .parts
@@ -115,10 +115,14 @@ impl LongHkeyExpanded {
                     Some((hkey, overlap_range))
                 }
             })
-            .map(|(hkey, overlap_range)| async move {
-                let chunk = hkey.resolve_slice_async(store, overlap_range).await?;
+            .map(|(hkey, overlap_range)| {
+                let store = store.clone();
 
-                Ok::<_, E>(chunk)
+                async move {
+                    let chunk = hkey.resolve_slice_async(store, overlap_range).await?;
+
+                    Ok::<_, E>(chunk)
+                }
             });
 
         let parts = try_join_all(futures).await?;

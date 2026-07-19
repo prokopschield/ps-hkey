@@ -5,11 +5,11 @@ use ps_util::ToResult;
 use crate::{AsyncStore, Hkey, HkeyError, LongHkey, LongHkeyExpanded};
 
 impl LongHkeyExpanded {
-    pub async fn store_async<C, E, S>(&self, store: &S) -> Result<LongHkey, E>
+    pub async fn store_async<C, E, S>(&self, store: S) -> Result<LongHkey, E>
     where
         C: DataChunk + Send,
         E: From<HkeyError> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = E> + Sync,
+        S: AsyncStore<Chunk = C, Error = E>,
     {
         match store.put(Bytes::from_owner(self.to_string())).await? {
             Hkey::Encrypted(hash, key) => LongHkey::from_hash_and_key(hash, key),

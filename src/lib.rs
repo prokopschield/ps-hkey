@@ -322,21 +322,21 @@ impl Hkey {
 
     pub fn resolve_async_box<'a, C, E, S>(
         &'a self,
-        store: &'a S,
+        store: S,
     ) -> Pin<Box<dyn Future<Output = TResult<Bytes, E>> + Send + 'a>>
     where
         C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send + 'a,
-        S: AsyncStore<Chunk = C, Error = E> + Sync,
+        S: AsyncStore<Chunk = C, Error = E>,
     {
         Box::pin(async move { self.resolve_async(store).await })
     }
 
-    pub async fn resolve_async<C, E, S>(&self, store: &S) -> TResult<Bytes, E>
+    pub async fn resolve_async<C, E, S>(&self, store: S) -> TResult<Bytes, E>
     where
         C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = E> + Sync,
+        S: AsyncStore<Chunk = C, Error = E>,
     {
         let chunk = match self {
             Self::Empty => Bytes::new(),
@@ -349,7 +349,7 @@ impl Hkey {
             Self::ListRef(hash, key) => Self::resolve_list_ref_async(hash, key, store).await?,
             Self::List(list) => Self::resolve_list_async(list, store).await?,
             Self::LongHkey(lhkey) => lhkey
-                .expand_async(store)
+                .expand_async(store.clone())
                 .await?
                 .resolve_async(store)
                 .await?
@@ -363,12 +363,12 @@ impl Hkey {
     pub async fn resolve_encrypted_async<C, E, S>(
         hash: &Hash,
         key: &Hash,
-        store: &S,
+        store: S,
     ) -> TResult<SerializedDataChunk, E>
     where
         C: DataChunk + Send,
         E: From<DataChunkError> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = E> + Sync,
+        S: AsyncStore<Chunk = C, Error = E>,
     {
         let encrypted = store.get(hash).await?;
         let decrypted = encrypted.decrypt(key)?;
@@ -379,14 +379,14 @@ impl Hkey {
     pub async fn resolve_list_ref_async<C, E, S>(
         hash: &Hash,
         key: &Hash,
-        store: &S,
+        store: S,
     ) -> TResult<Bytes, E>
     where
         C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = E> + Sync,
+        S: AsyncStore<Chunk = C, Error = E>,
     {
-        let list_bytes = Self::resolve_encrypted_async(hash, key, store).await?;
+        let list_bytes = Self::resolve_encrypted_async(hash, key, store.clone()).await?;
 
         Self::parse(list_bytes.data_ref())
             .map_err(HkeyError::Construction)?
@@ -394,17 +394,17 @@ impl Hkey {
             .await
     }
 
-    pub async fn resolve_list_async<'k, C, E, S>(list: &'k [Self], store: &S) -> TResult<Bytes, E>
+    pub async fn resolve_list_async<'k, C, E, S>(list: &'k [Self], store: S) -> TResult<Bytes, E>
     where
         C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = E> + Sync,
+        S: AsyncStore<Chunk = C, Error = E>,
     {
         // Iterator over the list
         let hkey_iter = list.iter();
 
         // Closure to resolve each Hkey
-        let closure = |hkey: &'k Self| hkey.resolve_async_box(store);
+        let closure = |hkey: &'k Self| hkey.resolve_async_box(store.clone());
 
         // Apply the closure to each item in the iterator
         let futures = hkey_iter.map(closure).collect();
@@ -425,13 +425,13 @@ impl Hkey {
     pub async fn resolve_list_ref_slice_async<C, E, S>(
         hash: &Hash,
         key: &Hash,
-        store: &S,
+        store: S,
         range: Range,
     ) -> TResult<Vec<u8>, E>
     where
         C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = E> + Sync,
+        S: AsyncStore<Chunk = C, Error = E>,
     {
         let chunk = store.get(hash).await?;
         let decrypted = chunk.decrypt(key)?;
@@ -442,20 +442,20 @@ impl Hkey {
 
     pub async fn resolve_list_slice_async<C, E, S>(
         list: &[Self],
-        store: &S,
+        store: S,
         range: Range,
     ) -> TResult<Vec<u8>, E>
     where
         C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = E> + Sync,
+        S: AsyncStore<Chunk = C, Error = E>,
     {
         let mut to_skip = range.start;
         let mut to_take = range.end - range.start;
         let mut buffer = Vec::with_capacity(to_take);
 
         for hkey in list {
-            let data = hkey.resolve_async(store).await?;
+            let data = hkey.resolve_async(store.clone()).await?;
             let len = data.len();
             let skip = len.max(to_skip);
             let take = (len - skip).max(to_take);
@@ -474,22 +474,22 @@ impl Hkey {
 
     pub fn resolve_slice_async_box<'a, C, E, S>(
         &'a self,
-        store: &'a S,
+        store: S,
         range: Range,
     ) -> Pin<Box<dyn Future<Output = TResult<Vec<u8>, E>> + Send + 'a>>
     where
         C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = E> + Sync,
+        S: AsyncStore<Chunk = C, Error = E>,
     {
         Box::pin(async move { self.resolve_slice_async(store, range).await })
     }
 
-    pub async fn resolve_slice_async<C, E, S>(&self, store: &S, range: Range) -> TResult<Vec<u8>, E>
+    pub async fn resolve_slice_async<C, E, S>(&self, store: S, range: Range) -> TResult<Vec<u8>, E>
     where
         C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = E> + Sync,
+        S: AsyncStore<Chunk = C, Error = E>,
     {
         match self {
             Self::List(list) => Self::resolve_list_slice_async(list, store, range).await,
@@ -500,7 +500,7 @@ impl Hkey {
 
             Self::LongHkey(lhkey) => {
                 lhkey
-                    .expand_async(store)
+                    .expand_async(store.clone())
                     .await?
                     .resolve_slice_async(store, range)
                     .await
@@ -558,11 +558,11 @@ impl Hkey {
         .ok()
     }
 
-    pub async fn shrink_or_not_async<C, E, S>(&self, store: &S) -> TResult<Option<Self>, E>
+    pub async fn shrink_or_not_async<C, E, S>(&self, store: S) -> TResult<Option<Self>, E>
     where
         C: DataChunk + Send,
         E: From<HkeyError> + PromiseRejection,
-        S: AsyncStore<Chunk = C, Error = E> + Sync,
+        S: AsyncStore<Chunk = C, Error = E>,
     {
         match self {
             Self::Raw(raw) => {
@@ -619,11 +619,11 @@ impl Hkey {
         (self.shrink_or_not(store)?).map_or_else(|| Ok(self), Ok)
     }
 
-    pub async fn shrink_into_async<C, E, S>(self, store: &S) -> TResult<Self, E>
+    pub async fn shrink_into_async<C, E, S>(self, store: S) -> TResult<Self, E>
     where
         C: DataChunk + Send,
         E: From<HkeyError> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = E> + Sync,
+        S: AsyncStore<Chunk = C, Error = E>,
     {
         (self.shrink_or_not_async(store).await?).map_or_else(|| Ok(self), Ok)
     }
@@ -637,11 +637,11 @@ impl Hkey {
         (self.shrink_or_not(store)?).map_or_else(|| Ok(self.clone()), Ok)
     }
 
-    pub async fn shrink_async<C, E, S>(&self, store: &S) -> TResult<Self, E>
+    pub async fn shrink_async<C, E, S>(&self, store: S) -> TResult<Self, E>
     where
         C: DataChunk + Send,
         E: From<HkeyError> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = E> + Sync,
+        S: AsyncStore<Chunk = C, Error = E>,
     {
         (self.shrink_or_not_async(store).await?).map_or_else(|| Ok(self.clone()), Ok)
     }
@@ -655,11 +655,11 @@ impl Hkey {
         self.shrink(store)?.to_string().ok()
     }
 
-    pub async fn shrink_to_string_async<C, E, S>(&self, store: &S) -> TResult<String, E>
+    pub async fn shrink_to_string_async<C, E, S>(&self, store: S) -> TResult<String, E>
     where
         C: DataChunk + Send,
         E: From<HkeyError> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = E> + Sync,
+        S: AsyncStore<Chunk = C, Error = E>,
     {
         self.shrink_async(store).await?.to_string().ok()
     }

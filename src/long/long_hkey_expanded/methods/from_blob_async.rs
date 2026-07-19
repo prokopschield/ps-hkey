@@ -16,22 +16,22 @@ use crate::{
 
 impl LongHkeyExpanded {
     pub fn from_blob_async_box<'a, C, E, S>(
-        store: &'a S,
+        store: S,
         data: &'a [u8],
     ) -> Pin<Box<dyn Future<Output = Result<Self, E>> + Send + 'a>>
     where
         C: DataChunk + Send,
         E: From<HkeyError> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = E> + Sync,
+        S: AsyncStore<Chunk = C, Error = E>,
     {
         Box::pin(async move { Self::from_blob_async(store, data).await })
     }
 
-    pub async fn from_blob_async<C, E, S>(store: &S, data: &[u8]) -> Result<Self, E>
+    pub async fn from_blob_async<C, E, S>(store: S, data: &[u8]) -> Result<Self, E>
     where
         C: DataChunk + Send,
         E: From<HkeyError> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = E> + Sync,
+        S: AsyncStore<Chunk = C, Error = E>,
     {
         let depth = calculate_depth(0, data.len());
 
@@ -43,9 +43,9 @@ impl LongHkeyExpanded {
             for (index, chunk) in data.chunks(segment_length).enumerate() {
                 let start = index * segment_length;
                 let end = start + chunk.len();
-                let hkey = Self::from_blob_async_box(store, chunk)
+                let hkey = Self::from_blob_async_box(store.clone(), chunk)
                     .await?
-                    .shrink_async(store)
+                    .shrink_async(store.clone())
                     .await?;
 
                 chunks.push((start..end, hkey));

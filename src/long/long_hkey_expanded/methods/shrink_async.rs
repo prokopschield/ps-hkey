@@ -5,11 +5,11 @@ use crate::{long::LongHkeyExpanded, AsyncStore, Hkey, HkeyError};
 
 impl LongHkeyExpanded {
     /// transforms this [`LongHkey`] into a [`Hkey::ListRef`]
-    pub async fn shrink_async<C, E, S>(&self, store: &S) -> Result<Hkey, E>
+    pub async fn shrink_async<C, E, S>(&self, store: S) -> Result<Hkey, E>
     where
         C: DataChunk + Send,
         E: From<HkeyError> + PromiseRejection + Send,
-        S: AsyncStore<Chunk = C, Error = E> + Sync,
+        S: AsyncStore<Chunk = C, Error = E>,
     {
         Ok(self.store_async(store).await?.into())
     }

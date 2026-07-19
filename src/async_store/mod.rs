@@ -13,9 +13,9 @@ use crate::{
 
 pub trait AsyncStore
 where
-    Self: Clone + Sized + Send + Sync + 'static,
+    Self: Clone + Sized + Send + 'static,
 {
-    type Chunk: DataChunk + Send + Sync;
+    type Chunk: DataChunk + Send;
     type Error: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send;
 
     fn get(&self, hash: &Hash) -> Promise<Self::Chunk, Self::Error>;
@@ -49,9 +49,9 @@ where
 
                 Ok(hkey)
             } else {
-                LongHkeyExpanded::from_blob_async(&this, &data)
+                LongHkeyExpanded::from_blob_async(this.clone(), &data)
                     .await?
-                    .shrink_async(&this)
+                    .shrink_async(this)
                     .await
             }
         })

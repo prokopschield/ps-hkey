@@ -56,7 +56,7 @@ impl<E: MixedStoreError, const WRITE_TO_ALL: bool> MixedStore<E, WRITE_TO_ALL> {
     pub fn new<S, A, IS, IA>(stores: IS, async_stores: IA) -> Self
     where
         S: Store<Error = E> + Send + Sync + 'static,
-        A: AsyncStore<Error = E>,
+        A: AsyncStore<Error = E> + Sync,
         IS: IntoIterator<Item = S>,
         IA: IntoIterator<Item = A>,
     {
@@ -77,7 +77,7 @@ impl<E: MixedStoreError, const WRITE_TO_ALL: bool> MixedStore<E, WRITE_TO_ALL> {
 
     pub fn push_async<A>(&mut self, store: A)
     where
-        A: AsyncStore<Error = E>,
+        A: AsyncStore<Error = E> + Sync,
     {
         self.write().async_stores.push(Box::new(store));
     }
@@ -94,7 +94,7 @@ impl<E: MixedStoreError, const WRITE_TO_ALL: bool> MixedStore<E, WRITE_TO_ALL> {
 
     pub fn extend_async<A, I>(&mut self, iter: I)
     where
-        A: AsyncStore<Error = E>,
+        A: AsyncStore<Error = E> + Sync,
         I: IntoIterator<Item = A>,
     {
         self.write()
