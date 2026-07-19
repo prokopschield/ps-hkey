@@ -1,11 +1,5 @@
-use std::{
-    future::Future,
-    mem::{self, replace},
-    ops::Deref,
-    sync::Arc,
-};
+use std::{ops::Deref, sync::Arc};
 
-use futures::FutureExt;
 use parking_lot::RwLock;
 use ps_datachunk::{DataChunk, DataChunkError, OwnedDataChunk};
 use ps_hash::Hash;
@@ -29,7 +23,7 @@ where
     fn get(&self, hash: Hash) -> Promise<OwnedDataChunk, Self::Error> {
         let store = self.clone();
 
-        Promise::new(async move { Ok(AsyncStore::get(&store, &hash).await?.into_owned()) })
+        Promise::lazy(async move { Ok(AsyncStore::get(&store, &hash).await?.into_owned()) })
     }
 
     fn put_encrypted(&self, chunk: OwnedDataChunk) -> Promise<(), Self::Error> {
@@ -137,7 +131,7 @@ impl<E: MixedStoreError, const WRITE_TO_ALL: bool> MixedStore<E, WRITE_TO_ALL> {
 
         for s in &guard.stores {
             match s.get(hash) {
-                Ok(chunk) => return Promise::Resolved(chunk),
+                Ok(chunk) => return Promise::resolve(chunk),
                 Err(err) => last_err = err,
             }
         }
@@ -150,44 +144,12 @@ impl<E: MixedStoreError, const WRITE_TO_ALL: bool> MixedStore<E, WRITE_TO_ALL> {
 
         drop(guard);
 
-        Promise::new(GetAsync { last_err, promises })
-    }
-}
-
-struct GetAsync<E: MixedStoreError> {
-    last_err: E,
-    promises: Vec<Promise<OwnedDataChunk, E>>,
-}
-
-impl<E: MixedStoreError> Future for GetAsync<E> {
-    type Output = Result<OwnedDataChunk, E>;
-
-    fn poll(
-        mut self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Self::Output> {
-        use std::task::Poll::{Pending, Ready};
-
-        let queue = mem::take(&mut self.promises);
-
-        for promise in queue {
-            match promise {
-                Promise::Consumed => {}
-                Promise::Pending(mut future) => match future.poll_unpin(cx) {
-                    Pending => self.promises.push(Promise::Pending(future)),
-                    Ready(Ok(chunk)) => return Ready(Ok(chunk)),
-                    Ready(Err(err)) => self.last_err = err,
-                },
-                Promise::Rejected(err) => self.last_err = err,
-                Promise::Resolved(chunk) => return Ready(Ok(chunk)),
+        Promise::lazy(async move {
+            match Promise::any(promises).await {
+                Ok(chunk) => Ok(chunk),
+                Err(mut errors) => Err(errors.pop().unwrap_or(last_err)),
             }
-        }
-
-        if self.promises.is_empty() {
-            return Ready(Err(replace(&mut self.last_err, E::already_consumed())));
-        }
-
-        Pending
+        })
     }
 }
 
@@ -319,7 +281,7 @@ impl<E: MixedStoreError> AsyncStore for MixedStore<E, false> {
 
         drop(guard);
 
-        Promise::new(async move {
+        Promise::lazy(async move {
             match Promise::any(promises).await {
                 Ok(()) => Ok(()),
                 Err(mut errors) => {

@@ -7,7 +7,7 @@ impl LongHkeyExpanded {
     /// transforms this [`LongHkey`] into a [`Hkey::ListRef`]
     pub async fn shrink_async<C, E, S>(&self, store: &S) -> Result<Hkey, E>
     where
-        C: DataChunk + Send + Unpin,
+        C: DataChunk + Send,
         E: From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {

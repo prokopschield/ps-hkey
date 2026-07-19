@@ -1,6 +1,6 @@
 use ps_datachunk::{DataChunk, DataChunkError, OwnedDataChunk};
 use ps_hash::Hash;
-use ps_promise::{Promise, PromiseRejection};
+use ps_promise::{Promise, PromiseRejection, TaskFailure};
 
 use crate::{
     store::in_memory::{InMemoryStore, InMemoryStoreError},
@@ -20,15 +20,15 @@ impl AsyncStore for InMemoryAsyncStore {
 
     fn get(&self, hash: &Hash) -> Promise<Self::Chunk, Self::Error> {
         match self.store.get(hash) {
-            Ok(chunk) => Promise::Resolved(chunk),
-            Err(err) => Promise::Rejected(err.into()),
+            Ok(chunk) => Promise::resolve(chunk),
+            Err(err) => Promise::reject(err.into()),
         }
     }
 
     fn put_encrypted<C: DataChunk>(&self, chunk: C) -> Promise<(), Self::Error> {
         match self.store.put_encrypted(chunk) {
-            Ok(chunk) => Promise::Resolved(chunk),
-            Err(err) => Promise::Rejected(err.into()),
+            Ok(chunk) => Promise::resolve(chunk),
+            Err(err) => Promise::reject(err.into()),
         }
     }
 }
@@ -43,10 +43,16 @@ pub enum InMemoryAsyncStoreError {
     PromiseConsumedAlready,
     #[error(transparent)]
     StoreError(#[from] InMemoryStoreError),
+    #[error(transparent)]
+    TaskFailed(#[from] TaskFailure),
 }
 
 impl PromiseRejection for InMemoryAsyncStoreError {
     fn already_consumed() -> Self {
         Self::PromiseConsumedAlready
+    }
+
+    fn task_failed(failure: TaskFailure) -> Self {
+        Self::TaskFailed(failure)
     }
 }

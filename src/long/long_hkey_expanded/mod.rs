@@ -85,7 +85,7 @@ impl LongHkeyExpanded {
 
     pub async fn resolve_async<C, E, S>(&self, store: &S) -> Result<Vec<u8>, E>
     where
-        C: DataChunk + Send + Unpin,
+        C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
@@ -94,7 +94,7 @@ impl LongHkeyExpanded {
 
     pub async fn resolve_slice_async<C, E, S>(&self, store: &S, range: Range) -> Result<Vec<u8>, E>
     where
-        C: DataChunk + Send + Unpin,
+        C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {

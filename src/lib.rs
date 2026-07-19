@@ -325,7 +325,7 @@ impl Hkey {
         store: &'a S,
     ) -> Pin<Box<dyn Future<Output = TResult<Bytes, E>> + Send + 'a>>
     where
-        C: DataChunk + Send + Unpin,
+        C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send + 'a,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
@@ -334,7 +334,7 @@ impl Hkey {
 
     pub async fn resolve_async<C, E, S>(&self, store: &S) -> TResult<Bytes, E>
     where
-        C: DataChunk + Send + Unpin,
+        C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
@@ -366,7 +366,7 @@ impl Hkey {
         store: &S,
     ) -> TResult<SerializedDataChunk, E>
     where
-        C: DataChunk + Send + Unpin,
+        C: DataChunk + Send,
         E: From<DataChunkError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
@@ -382,7 +382,7 @@ impl Hkey {
         store: &S,
     ) -> TResult<Bytes, E>
     where
-        C: DataChunk + Send + Unpin,
+        C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
@@ -396,7 +396,7 @@ impl Hkey {
 
     pub async fn resolve_list_async<'k, C, E, S>(list: &'k [Self], store: &S) -> TResult<Bytes, E>
     where
-        C: DataChunk + Send + Unpin,
+        C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
@@ -429,7 +429,7 @@ impl Hkey {
         range: Range,
     ) -> TResult<Vec<u8>, E>
     where
-        C: DataChunk + Send + Unpin,
+        C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
@@ -446,7 +446,7 @@ impl Hkey {
         range: Range,
     ) -> TResult<Vec<u8>, E>
     where
-        C: DataChunk + Send + Unpin,
+        C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
@@ -478,7 +478,7 @@ impl Hkey {
         range: Range,
     ) -> Pin<Box<dyn Future<Output = TResult<Vec<u8>, E>> + Send + 'a>>
     where
-        C: DataChunk + Send + Unpin,
+        C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
@@ -487,7 +487,7 @@ impl Hkey {
 
     pub async fn resolve_slice_async<C, E, S>(&self, store: &S, range: Range) -> TResult<Vec<u8>, E>
     where
-        C: DataChunk + Send + Unpin,
+        C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
@@ -560,7 +560,7 @@ impl Hkey {
 
     pub async fn shrink_or_not_async<C, E, S>(&self, store: &S) -> TResult<Option<Self>, E>
     where
-        C: DataChunk + Send + Unpin,
+        C: DataChunk + Send,
         E: From<HkeyError> + PromiseRejection,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
@@ -621,7 +621,7 @@ impl Hkey {
 
     pub async fn shrink_into_async<C, E, S>(self, store: &S) -> TResult<Self, E>
     where
-        C: DataChunk + Send + Unpin,
+        C: DataChunk + Send,
         E: From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
@@ -639,7 +639,7 @@ impl Hkey {
 
     pub async fn shrink_async<C, E, S>(&self, store: &S) -> TResult<Self, E>
     where
-        C: DataChunk + Send + Unpin,
+        C: DataChunk + Send,
         E: From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {
@@ -657,7 +657,7 @@ impl Hkey {
 
     pub async fn shrink_to_string_async<C, E, S>(&self, store: &S) -> TResult<String, E>
     where
-        C: DataChunk + Send + Unpin,
+        C: DataChunk + Send,
         E: From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E> + Sync,
     {

@@ -15,8 +15,8 @@ pub trait AsyncStore
 where
     Self: Clone + Sized + Send + Sync + 'static,
 {
-    type Chunk: DataChunk + Send + Sync + Unpin;
-    type Error: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send + Unpin;
+    type Chunk: DataChunk + Send + Sync;
+    type Error: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send;
 
     fn get(&self, hash: &Hash) -> Promise<Self::Chunk, Self::Error>;
 
@@ -32,7 +32,7 @@ where
 
         let this = self.clone();
 
-        Promise::new(async move {
+        Promise::lazy(async move {
             if data.len() <= MAX_ENCRYPTED_SIZE && validate_ecc(&data) {
                 let chunk = OwnedDataChunk::from_bytes(data)?;
                 let hash = chunk.hash();
