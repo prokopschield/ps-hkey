@@ -259,21 +259,26 @@ impl Hkey {
         let mut buffer = Buffer::with_capacity(to_take).map_err(HkeyError::from)?;
 
         for hkey in list {
+            if to_skip == 0 && to_take == 0 {
+                break;
+            }
+
             let data = hkey.resolve(store)?;
             let len = data.len();
-            let skip = len.max(to_skip);
-            let take = (len - skip).max(to_take);
+
+            let skip = len.min(to_skip);
+            let take = (len - skip).min(to_take);
 
             buffer
-                .extend_from_slice(&data[skip..take])
+                .extend_from_slice(&data[skip..skip + take])
                 .map_err(HkeyError::from)?;
 
             to_skip -= skip;
             to_take -= take;
+        }
 
-            if to_take == 0 {
-                break;
-            }
+        if to_skip > 0 || to_take > 0 {
+            HkeyError::Range(range.start - to_skip + buffer.len()).err()?;
         }
 
         Ok(buffer.into())
@@ -460,21 +465,26 @@ impl Hkey {
         let mut buffer = Buffer::with_capacity(to_take).map_err(HkeyError::from)?;
 
         for hkey in list {
+            if to_skip == 0 && to_take == 0 {
+                break;
+            }
+
             let data = hkey.resolve_async(store.clone()).await?;
             let len = data.len();
-            let skip = len.max(to_skip);
-            let take = (len - skip).max(to_take);
+
+            let skip = len.min(to_skip);
+            let take = (len - skip).min(to_take);
 
             buffer
-                .extend_from_slice(&data[skip..take])
+                .extend_from_slice(&data[skip..skip + take])
                 .map_err(HkeyError::from)?;
 
             to_skip -= skip;
             to_take -= take;
+        }
 
-            if to_take == 0 {
-                break;
-            }
+        if to_skip > 0 || to_take > 0 {
+            HkeyError::Range(range.start - to_skip + buffer.len()).err()?;
         }
 
         Ok(buffer.into())
@@ -730,5 +740,161 @@ where
 {
     fn from(value: (A, B)) -> Self {
         Self::Encrypted(value.0.into(), value.1.into())
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::*;
+
+    fn raw(bytes: &[u8]) -> Hkey {
+        Hkey::from_raw(bytes).expect("Failed to allocate Hkey::Raw")
+    }
+
+    /// `[1, 2, 3], [4, 5]`, five bytes across two items.
+    fn five_byte_list() -> Hkey {
+        Hkey::List(vec![raw(&[1, 2, 3]), raw(&[4, 5])].into())
+    }
+
+    /// `[1, 2, 3], [4, 5, 6], [7, 8, 9]`, nine bytes across three items.
+    fn nine_byte_list() -> Hkey {
+        Hkey::List(vec![raw(&[1, 2, 3]), raw(&[4, 5, 6]), raw(&[7, 8, 9])].into())
+    }
+
+    #[test]
+    fn resolve_list_slice_full_range() {
+        let store = InMemoryStore::default();
+
+        let slice = five_byte_list()
+            .resolve_slice(&store, 0..5)
+            .expect("Failed to resolve slice");
+
+        assert_eq!(&slice[..], &[1, 2, 3, 4, 5]);
+    }
+
+    #[test]
+    fn resolve_list_slice_spans_items() {
+        let store = InMemoryStore::default();
+
+        let slice = five_byte_list()
+            .resolve_slice(&store, 2..5)
+            .expect("Failed to resolve slice");
+
+        assert_eq!(&slice[..], &[3, 4, 5]);
+    }
+
+    #[test]
+    fn resolve_list_slice_within_single_item() {
+        let store = InMemoryStore::default();
+        let list = Hkey::List(vec![raw(&[1, 2, 3])].into());
+
+        let slice = list
+            .resolve_slice(&store, 1..3)
+            .expect("Failed to resolve slice");
+
+        assert_eq!(&slice[..], &[2, 3]);
+    }
+
+    #[test]
+    fn resolve_list_slice_skip_spans_multiple_items() {
+        let store = InMemoryStore::default();
+
+        let slice = nine_byte_list()
+            .resolve_slice(&store, 4..6)
+            .expect("Failed to resolve slice");
+
+        assert_eq!(&slice[..], &[5, 6]);
+    }
+
+    #[test]
+    fn resolve_list_slice_skips_empty_items() {
+        let store = InMemoryStore::default();
+        let list = Hkey::List(vec![Hkey::Empty, raw(&[1, 2, 3]), Hkey::Empty].into());
+
+        let slice = list
+            .resolve_slice(&store, 1..3)
+            .expect("Failed to resolve slice");
+
+        assert_eq!(&slice[..], &[2, 3]);
+    }
+
+    #[test]
+    fn resolve_list_slice_beyond_list_errors() {
+        let store = InMemoryStore::default();
+
+        let result = five_byte_list().resolve_slice(&store, 2..7);
+
+        assert!(matches!(
+            result,
+            Err(InMemoryStoreError::Hkey(HkeyError::Range(5)))
+        ));
+    }
+
+    #[test]
+    fn resolve_list_slice_empty_range_at_exact_end_is_empty() {
+        let store = InMemoryStore::default();
+
+        let slice = five_byte_list()
+            .resolve_slice(&store, 5..5)
+            .expect("Failed to resolve slice");
+
+        assert!(slice.is_empty());
+    }
+
+    #[test]
+    fn resolve_list_slice_empty_range_past_end_errors() {
+        let store = InMemoryStore::default();
+
+        let result = five_byte_list().resolve_slice(&store, 9..9);
+
+        assert!(matches!(
+            result,
+            Err(InMemoryStoreError::Hkey(HkeyError::Range(5)))
+        ));
+    }
+
+    #[test]
+    fn resolve_list_slice_async_spans_items() {
+        let store = InMemoryAsyncStore::default();
+
+        let slice = futures::executor::block_on(five_byte_list().resolve_slice_async(store, 2..5))
+            .expect("Failed to resolve slice");
+
+        assert_eq!(&slice[..], &[3, 4, 5]);
+    }
+
+    #[test]
+    fn resolve_list_slice_async_skip_spans_multiple_items() {
+        let store = InMemoryAsyncStore::default();
+
+        let slice = futures::executor::block_on(nine_byte_list().resolve_slice_async(store, 4..6))
+            .expect("Failed to resolve slice");
+
+        assert_eq!(&slice[..], &[5, 6]);
+    }
+
+    #[test]
+    fn resolve_list_slice_async_beyond_list_errors() {
+        let store = InMemoryAsyncStore::default();
+
+        let result = futures::executor::block_on(five_byte_list().resolve_slice_async(store, 2..7));
+
+        assert!(matches!(
+            result,
+            Err(InMemoryAsyncStoreError::Hkey(HkeyError::Range(5)))
+        ));
+    }
+
+    #[test]
+    fn resolve_list_slice_async_empty_range_past_end_errors() {
+        let store = InMemoryAsyncStore::default();
+
+        let result = futures::executor::block_on(five_byte_list().resolve_slice_async(store, 9..9));
+
+        assert!(matches!(
+            result,
+            Err(InMemoryAsyncStoreError::Hkey(HkeyError::Range(5)))
+        ));
     }
 }
