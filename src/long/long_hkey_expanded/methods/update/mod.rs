@@ -28,6 +28,10 @@ impl LongHkeyExpanded {
         E: From<HkeyError> + From<DataChunkError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
+        if range.start > range.end {
+            HkeyError::InvalidRange(range.clone()).err()?;
+        }
+
         let length = data.len().min(range.end - range.start);
 
         let range = range.start..range.start + length;
@@ -118,6 +122,10 @@ impl LongHkeyExpanded {
         E: From<HkeyError> + From<DataChunkError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
+        if range.start > range.end {
+            HkeyError::InvalidRange(range.clone()).err()?;
+        }
+
         let range = range.start..range.end.min(range.start + data.len());
         let length = range.end.max(self.size);
         let depth = calculate_depth(self.depth, range.end);

@@ -11,6 +11,7 @@ use futures::future::try_join_all;
 use ps_buffer::Buffer;
 use ps_datachunk::{Bytes, DataChunk, DataChunkError};
 use ps_promise::PromiseRejection;
+use ps_util::ToResult;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use crate::{AsyncStore, Hkey, HkeyError, Range, Store};
@@ -51,6 +52,10 @@ impl LongHkeyExpanded {
         E: From<DataChunkError> + From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
+        if range.start > range.end {
+            HkeyError::InvalidRange(range.clone()).err()?;
+        }
+
         // Collect the data chunks in parallel
         let result: Result<Vec<Bytes>, E> = self
             .parts
@@ -101,6 +106,10 @@ impl LongHkeyExpanded {
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E>,
     {
+        if range.start > range.end {
+            HkeyError::InvalidRange(range.clone()).err()?;
+        }
+
         let futures = self
             .parts
             .iter()
@@ -218,5 +227,77 @@ impl From<LongHkeyExpanded> for Hkey {
 impl From<&LongHkeyExpanded> for Hkey {
     fn from(lhkey: &LongHkeyExpanded) -> Self {
         Self::LongHkeyExpanded(lhkey.clone())
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+#[allow(clippy::reversed_empty_ranges)]
+mod tests {
+    use crate::{
+        long::LongHkeyExpanded, HkeyError, InMemoryAsyncStore, InMemoryAsyncStoreError,
+        InMemoryStore, InMemoryStoreError,
+    };
+
+    #[test]
+    fn resolve_slice_inverted_range_errors() {
+        let store = InMemoryStore::default();
+
+        let result = LongHkeyExpanded::default().resolve_slice(&store, 3..1);
+
+        assert!(matches!(
+            result,
+            Err(InMemoryStoreError::Hkey(HkeyError::InvalidRange(_)))
+        ));
+    }
+
+    #[test]
+    fn resolve_slice_async_inverted_range_errors() {
+        let store = InMemoryAsyncStore::default();
+
+        let result = futures::executor::block_on(
+            LongHkeyExpanded::default().resolve_slice_async(store, 3..1),
+        );
+
+        assert!(matches!(
+            result,
+            Err(InMemoryAsyncStoreError::Hkey(HkeyError::InvalidRange(_)))
+        ));
+    }
+
+    #[test]
+    fn update_inverted_range_errors() {
+        let store = InMemoryStore::default();
+
+        let result = LongHkeyExpanded::default().update(&store, b"data", 3..1);
+
+        assert!(matches!(
+            result,
+            Err(InMemoryStoreError::Hkey(HkeyError::InvalidRange(_)))
+        ));
+    }
+
+    #[test]
+    fn update_flat_inverted_range_errors() {
+        let store = InMemoryStore::default();
+
+        let result = LongHkeyExpanded::default().update_flat(&store, b"data", &(3..1));
+
+        assert!(matches!(
+            result,
+            Err(InMemoryStoreError::Hkey(HkeyError::InvalidRange(_)))
+        ));
+    }
+
+    #[test]
+    fn normalize_segment_inverted_range_errors() {
+        let store = InMemoryStore::default();
+
+        let result = LongHkeyExpanded::default().normalize_segment(&store, 0, 3..1);
+
+        assert!(matches!(
+            result,
+            Err(InMemoryStoreError::Hkey(HkeyError::InvalidRange(_)))
+        ));
     }
 }

@@ -26,6 +26,8 @@ pub enum HkeyError {
     Format,
     #[error("Invalid range, entity is of size {0}")]
     Range(usize),
+    #[error("Invalid range, start exceeds end: {0:?}")]
+    InvalidRange(crate::Range),
     #[error("Failed to store with external storage function")]
     Storage,
     #[error("While storing a List or LongHkey, expected Hkey::Encrypted, got {0}")]

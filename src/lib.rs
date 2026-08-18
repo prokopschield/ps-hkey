@@ -254,6 +254,10 @@ impl Hkey {
         E: From<DataChunkError> + From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
+        if range.start > range.end {
+            HkeyError::InvalidRange(range.clone()).err()?;
+        }
+
         let mut to_skip = range.start;
         let mut to_take = range.end - range.start;
         let mut buffer = Buffer::with_capacity(to_take).map_err(HkeyError::from)?;
@@ -308,6 +312,10 @@ impl Hkey {
         E: From<DataChunkError> + From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
+        if range.start > range.end {
+            HkeyError::InvalidRange(range.clone()).err()?;
+        }
+
         match self {
             Self::List(list) => Self::resolve_list_slice(list, store, range),
 
@@ -460,6 +468,10 @@ impl Hkey {
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E>,
     {
+        if range.start > range.end {
+            HkeyError::InvalidRange(range.clone()).err()?;
+        }
+
         let mut to_skip = range.start;
         let mut to_take = range.end - range.start;
         let mut buffer = Buffer::with_capacity(to_take).map_err(HkeyError::from)?;
@@ -509,6 +521,10 @@ impl Hkey {
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E>,
     {
+        if range.start > range.end {
+            HkeyError::InvalidRange(range.clone()).err()?;
+        }
+
         match self {
             Self::List(list) => Self::resolve_list_slice_async(list, store, range).await,
 
@@ -895,6 +911,74 @@ mod tests {
         assert!(matches!(
             result,
             Err(InMemoryAsyncStoreError::Hkey(HkeyError::Range(5)))
+        ));
+    }
+
+    #[test]
+    #[allow(clippy::reversed_empty_ranges)]
+    fn resolve_slice_inverted_range_errors() {
+        let store = InMemoryStore::default();
+
+        let result = raw(&[1, 2, 3]).resolve_slice(&store, 3..1);
+
+        assert!(matches!(
+            result,
+            Err(InMemoryStoreError::Hkey(HkeyError::InvalidRange(_)))
+        ));
+    }
+
+    #[test]
+    #[allow(clippy::reversed_empty_ranges)]
+    fn resolve_list_slice_inverted_range_errors() {
+        let store = InMemoryStore::default();
+
+        let result = five_byte_list().resolve_slice(&store, 3..1);
+
+        assert!(matches!(
+            result,
+            Err(InMemoryStoreError::Hkey(HkeyError::InvalidRange(_)))
+        ));
+    }
+
+    #[test]
+    #[allow(clippy::reversed_empty_ranges)]
+    fn resolve_list_slice_called_directly_with_inverted_range_errors() {
+        let store = InMemoryStore::default();
+        let items = [raw(&[1, 2, 3]), raw(&[4, 5])];
+
+        let result = Hkey::resolve_list_slice(&items, &store, 3..1);
+
+        assert!(matches!(
+            result,
+            Err(InMemoryStoreError::Hkey(HkeyError::InvalidRange(_)))
+        ));
+    }
+
+    #[test]
+    #[allow(clippy::reversed_empty_ranges)]
+    fn resolve_slice_async_inverted_range_errors() {
+        let store = InMemoryAsyncStore::default();
+
+        let result = futures::executor::block_on(raw(&[1, 2, 3]).resolve_slice_async(store, 3..1));
+
+        assert!(matches!(
+            result,
+            Err(InMemoryAsyncStoreError::Hkey(HkeyError::InvalidRange(_)))
+        ));
+    }
+
+    #[test]
+    #[allow(clippy::reversed_empty_ranges)]
+    fn resolve_list_slice_async_called_directly_with_inverted_range_errors() {
+        let store = InMemoryAsyncStore::default();
+        let items = [raw(&[1, 2, 3]), raw(&[4, 5])];
+
+        let result =
+            futures::executor::block_on(Hkey::resolve_list_slice_async(&items, store, 3..1));
+
+        assert!(matches!(
+            result,
+            Err(InMemoryAsyncStoreError::Hkey(HkeyError::InvalidRange(_)))
         ));
     }
 }
