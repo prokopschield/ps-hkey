@@ -10,6 +10,7 @@ arrayvec = "0.7.8"
 futures = "0.3.33"
 parking_lot = "0.12.5"
 ps-base64 = "0.1.0-7"
+ps-buffer = { version = "0.1.0-23", features = ["bytes"] }
 ps-cypher = "0.1.0-28"
 ps-datachunk = "0.1.0-36"
 ps-hash = "0.1.0-24"

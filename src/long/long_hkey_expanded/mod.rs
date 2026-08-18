@@ -8,7 +8,8 @@ use std::{
 };
 
 use futures::future::try_join_all;
-use ps_datachunk::{DataChunk, DataChunkError};
+use ps_buffer::Buffer;
+use ps_datachunk::{Bytes, DataChunk, DataChunkError};
 use ps_promise::PromiseRejection;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
@@ -35,7 +36,7 @@ impl LongHkeyExpanded {
         self.size
     }
 
-    pub fn resolve<'a, C, E, S>(&self, store: &'a S) -> Result<Vec<u8>, E>
+    pub fn resolve<'a, C, E, S>(&self, store: &'a S) -> Result<Bytes, E>
     where
         C: DataChunk,
         E: From<DataChunkError> + From<HkeyError> + Send,
@@ -44,14 +45,14 @@ impl LongHkeyExpanded {
         self.resolve_slice(store, 0..self.size)
     }
 
-    pub fn resolve_slice<'a, C, E, S>(&self, store: &'a S, range: Range) -> Result<Vec<u8>, E>
+    pub fn resolve_slice<'a, C, E, S>(&self, store: &'a S, range: Range) -> Result<Bytes, E>
     where
         C: DataChunk,
         E: From<DataChunkError> + From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         // Collect the data chunks in parallel
-        let result: Result<Vec<Vec<u8>>, E> = self
+        let result: Result<Vec<Bytes>, E> = self
             .parts
             .par_iter()
             .filter_map(|(part_range, hkey)| {
@@ -72,18 +73,20 @@ impl LongHkeyExpanded {
 
         let parts = result?;
 
-        // Combine the results into a single vector
-        let mut combined_result = Vec::with_capacity(range.end - range.start);
+        // Combine the results into a single buffer
+        let cap = range.end - range.start;
+        let mut combined_result = Buffer::with_capacity(cap).map_err(HkeyError::from)?;
 
         for part in parts {
-            combined_result.extend_from_slice(&part);
+            combined_result
+                .extend_from_slice(&part)
+                .map_err(HkeyError::from)?;
         }
 
-        // Convert the result vector into an Arc<[u8]>
-        Ok(combined_result)
+        Ok(combined_result.into())
     }
 
-    pub async fn resolve_async<C, E, S>(&self, store: S) -> Result<Vec<u8>, E>
+    pub async fn resolve_async<C, E, S>(&self, store: S) -> Result<Bytes, E>
     where
         C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
@@ -92,7 +95,7 @@ impl LongHkeyExpanded {
         self.resolve_slice_async(store, 0..self.size).await
     }
 
-    pub async fn resolve_slice_async<C, E, S>(&self, store: S, range: Range) -> Result<Vec<u8>, E>
+    pub async fn resolve_slice_async<C, E, S>(&self, store: S, range: Range) -> Result<Bytes, E>
     where
         C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
@@ -127,15 +130,17 @@ impl LongHkeyExpanded {
 
         let parts = try_join_all(futures).await?;
 
-        // Combine the results into a single vector
-        let mut combined_result = Vec::with_capacity(range.end - range.start);
+        // Combine the results into a single buffer
+        let cap = range.end - range.start;
+        let mut combined_result = Buffer::with_capacity(cap).map_err(HkeyError::from)?;
 
         for part in parts {
-            combined_result.extend_from_slice(&part);
+            combined_result
+                .extend_from_slice(&part)
+                .map_err(HkeyError::from)?;
         }
 
-        // Convert the result vector into an Arc<[u8]>
-        Ok(combined_result)
+        Ok(combined_result.into())
     }
 }
 

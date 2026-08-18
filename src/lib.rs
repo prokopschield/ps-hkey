@@ -17,6 +17,7 @@ pub use error::HkeyFromCompactError;
 pub use error::Result;
 pub use long::LongHkey;
 pub use long::LongHkeyExpanded;
+use ps_buffer::Buffer;
 use ps_datachunk::Bytes;
 use ps_datachunk::DataChunk;
 use ps_datachunk::DataChunkError;
@@ -183,8 +184,8 @@ impl Hkey {
             Self::Encrypted(hash, key) => Self::resolve_encrypted(hash, key, store)?.into_bytes(),
             Self::ListRef(hash, key) => Self::resolve_list_ref(hash, key, store)?,
             Self::List(list) => Self::resolve_list(list, store)?.into_bytes(),
-            Self::LongHkey(lhkey) => lhkey.expand(store)?.resolve(store)?.into(),
-            Self::LongHkeyExpanded(lhkey) => lhkey.resolve(store)?.into(),
+            Self::LongHkey(lhkey) => lhkey.expand(store)?.resolve(store)?,
+            Self::LongHkeyExpanded(lhkey) => lhkey.resolve(store)?,
         };
 
         Ok(chunk)
@@ -247,7 +248,7 @@ impl Hkey {
         list: &[Self],
         store: &'a S,
         range: Range,
-    ) -> TResult<Vec<u8>, E>
+    ) -> TResult<Bytes, E>
     where
         C: DataChunk,
         E: From<DataChunkError> + From<HkeyError> + Send,
@@ -255,7 +256,7 @@ impl Hkey {
     {
         let mut to_skip = range.start;
         let mut to_take = range.end - range.start;
-        let mut buffer = Vec::with_capacity(to_take);
+        let mut buffer = Buffer::with_capacity(to_take).map_err(HkeyError::from)?;
 
         for hkey in list {
             let data = hkey.resolve(store)?;
@@ -263,7 +264,10 @@ impl Hkey {
             let skip = len.max(to_skip);
             let take = (len - skip).max(to_take);
 
-            buffer.extend_from_slice(&data[skip..take]);
+            buffer
+                .extend_from_slice(&data[skip..take])
+                .map_err(HkeyError::from)?;
+
             to_skip -= skip;
             to_take -= take;
 
@@ -272,7 +276,7 @@ impl Hkey {
             }
         }
 
-        Ok(buffer)
+        Ok(buffer.into())
     }
 
     pub fn resolve_list_ref_slice<'a, C, E, S>(
@@ -280,7 +284,7 @@ impl Hkey {
         key: &Hash,
         store: &'a S,
         range: Range,
-    ) -> TResult<Vec<u8>, E>
+    ) -> TResult<Bytes, E>
     where
         C: DataChunk,
         E: From<DataChunkError> + From<HkeyError> + Send,
@@ -293,7 +297,7 @@ impl Hkey {
         hkey.resolve_slice(store, range)
     }
 
-    pub fn resolve_slice<'a, C, E, S>(&self, store: &'a S, range: Range) -> TResult<Vec<u8>, E>
+    pub fn resolve_slice<'a, C, E, S>(&self, store: &'a S, range: Range) -> TResult<Bytes, E>
     where
         C: DataChunk,
         E: From<DataChunkError> + From<HkeyError> + Send,
@@ -311,8 +315,8 @@ impl Hkey {
             _ => {
                 let bytes = self.resolve(store)?;
 
-                if let Some(slice) = bytes.get(range) {
-                    return Ok(slice.to_vec());
+                if bytes.len() >= range.end {
+                    return Ok(bytes.slice(range));
                 }
 
                 HkeyError::Range(bytes.len()).err()?
@@ -348,13 +352,14 @@ impl Hkey {
                 .into_bytes(),
             Self::ListRef(hash, key) => Self::resolve_list_ref_async(hash, key, store).await?,
             Self::List(list) => Self::resolve_list_async(list, store).await?,
-            Self::LongHkey(lhkey) => lhkey
-                .expand_async(store.clone())
-                .await?
-                .resolve_async(store)
-                .await?
-                .into(),
-            Self::LongHkeyExpanded(lhkey) => lhkey.resolve_async(store).await?.into(),
+            Self::LongHkey(lhkey) => {
+                lhkey
+                    .expand_async(store.clone())
+                    .await?
+                    .resolve_async(store)
+                    .await?
+            }
+            Self::LongHkeyExpanded(lhkey) => lhkey.resolve_async(store).await?,
         };
 
         Ok(chunk)
@@ -427,7 +432,7 @@ impl Hkey {
         key: &Hash,
         store: S,
         range: Range,
-    ) -> TResult<Vec<u8>, E>
+    ) -> TResult<Bytes, E>
     where
         C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
@@ -444,7 +449,7 @@ impl Hkey {
         list: &[Self],
         store: S,
         range: Range,
-    ) -> TResult<Vec<u8>, E>
+    ) -> TResult<Bytes, E>
     where
         C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
@@ -452,7 +457,7 @@ impl Hkey {
     {
         let mut to_skip = range.start;
         let mut to_take = range.end - range.start;
-        let mut buffer = Vec::with_capacity(to_take);
+        let mut buffer = Buffer::with_capacity(to_take).map_err(HkeyError::from)?;
 
         for hkey in list {
             let data = hkey.resolve_async(store.clone()).await?;
@@ -460,7 +465,10 @@ impl Hkey {
             let skip = len.max(to_skip);
             let take = (len - skip).max(to_take);
 
-            buffer.extend_from_slice(&data[skip..take]);
+            buffer
+                .extend_from_slice(&data[skip..take])
+                .map_err(HkeyError::from)?;
+
             to_skip -= skip;
             to_take -= take;
 
@@ -469,14 +477,14 @@ impl Hkey {
             }
         }
 
-        Ok(buffer)
+        Ok(buffer.into())
     }
 
     pub fn resolve_slice_async_box<'a, C, E, S>(
         &'a self,
         store: S,
         range: Range,
-    ) -> Pin<Box<dyn Future<Output = TResult<Vec<u8>, E>> + Send + 'a>>
+    ) -> Pin<Box<dyn Future<Output = TResult<Bytes, E>> + Send + 'a>>
     where
         C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
@@ -485,7 +493,7 @@ impl Hkey {
         Box::pin(async move { self.resolve_slice_async(store, range).await })
     }
 
-    pub async fn resolve_slice_async<C, E, S>(&self, store: S, range: Range) -> TResult<Vec<u8>, E>
+    pub async fn resolve_slice_async<C, E, S>(&self, store: S, range: Range) -> TResult<Bytes, E>
     where
         C: DataChunk + Send,
         E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
@@ -511,8 +519,8 @@ impl Hkey {
             _ => {
                 let bytes = self.resolve_async(store).await?;
 
-                if let Some(slice) = bytes.get(range) {
-                    return Ok(slice.to_vec());
+                if bytes.len() >= range.end {
+                    return Ok(bytes.slice(range));
                 }
 
                 HkeyError::Range(bytes.len()).err()?

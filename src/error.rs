@@ -1,3 +1,4 @@
+use ps_buffer::BufferError;
 use ps_datachunk::DataChunkError;
 use ps_hash::{HashError, HashValidationError};
 use std::num::ParseIntError;
@@ -6,6 +7,8 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum HkeyError {
+    #[error(transparent)]
+    Buffer(#[from] BufferError),
     #[error(transparent)]
     Construction(#[from] HkeyConstructionError),
     #[error(transparent)]

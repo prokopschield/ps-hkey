@@ -1,14 +1,15 @@
 use ps_base64::base64;
+use ps_datachunk::Bytes;
 use ps_hash::{Hash, HASH_SIZE_COMPACT};
 
 use crate::{Hkey, Store};
 
 impl Hkey {
-    pub fn compact<S: Store>(&self, store: &S) -> Result<Vec<u8>, S::Error> {
+    pub fn compact<S: Store>(&self, store: &S) -> Result<Bytes, S::Error> {
         match self.shrink(store)? {
-            Self::Raw(value) => Ok(value.to_vec()),
-            Self::Base64(value) => Ok(base64::decode(value.as_bytes())),
-            Self::Direct(hash) => Ok(hash.compact().to_vec()),
+            Self::Raw(value) => Ok(Bytes::copy_from_slice(&value)),
+            Self::Base64(value) => Ok(base64::decode(value.as_bytes()).into()),
+            Self::Direct(hash) => Ok(Bytes::copy_from_slice(hash.compact())),
             Self::Encrypted(hash, key) => Ok(compact_dhash(&hash, &key, 0)),
             Self::ListRef(hash, key) => Ok(compact_dhash(&hash, &key, 1)),
             Self::LongHkey(lhkey) => Ok(compact_dhash(lhkey.hash_ref(), lhkey.key_ref(), 1)),
@@ -17,7 +18,7 @@ impl Hkey {
     }
 }
 
-pub fn compact_dhash(a: &Hash, b: &Hash, flag: u8) -> Vec<u8> {
+pub fn compact_dhash(a: &Hash, b: &Hash, flag: u8) -> Bytes {
     let mut double = Vec::with_capacity(HASH_SIZE_COMPACT * 2);
 
     double.extend_from_slice(a.compact());
@@ -26,7 +27,7 @@ pub fn compact_dhash(a: &Hash, b: &Hash, flag: u8) -> Vec<u8> {
     double[0] &= 0xFE;
     double[0] ^= flag;
 
-    double
+    double.into()
 }
 
 #[cfg(test)]
