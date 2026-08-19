@@ -106,10 +106,9 @@ impl LongHkeyExpanded {
                     let mut buffer = Vec::with_capacity(part_end - part_start);
 
                     let data_start = part_start - range.start;
-                    let orig_start = data.len() - data_start;
 
                     buffer.extend_from_slice(&data[data_start..]);
-                    buffer.extend_from_slice(&self.resolve_slice(store, orig_start..part_end)?);
+                    buffer.extend_from_slice(&self.resolve_slice(store, range.end..part_end)?);
 
                     return (part_start..part_end, store.put(&buffer)?).ok();
                 }
@@ -119,7 +118,7 @@ impl LongHkeyExpanded {
             })
             .collect();
 
-        let lhkey = Self::new(0, length, Arc::from(parts?.into_boxed_slice()));
+        let lhkey = Self::new(0, new_size, Arc::from(parts?.into_boxed_slice()));
 
         Ok(lhkey)
     }

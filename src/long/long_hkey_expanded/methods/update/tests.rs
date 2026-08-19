@@ -120,3 +120,51 @@ fn update_empty_data_at_depth_one_is_accepted() {
         .update(&store, &[], 20..30)
         .expect("Empty data should be accepted");
 }
+
+/// A patch that starts inside one segment and ends inside a later one takes the "part begins with
+/// new data" branch of `update_flat`, whose untouched tail must be read from `range.end` onward.
+#[test]
+fn update_across_a_segment_boundary_preserves_the_tail() {
+    let store = InMemoryStore::default();
+
+    let original = sequential_bytes(2 * LHKEY_SEGMENT_MAX_LENGTH);
+    let lhkey = lhkey_of_depth(&store, &original, 0);
+
+    let patch = vec![0xAA; LHKEY_SEGMENT_MAX_LENGTH + 804];
+    let range = 100..100 + patch.len();
+
+    let mut expected = original;
+
+    expected[range.clone()].copy_from_slice(&patch);
+
+    let updated = lhkey
+        .update(&store, &patch, range)
+        .expect("Failed to update");
+
+    let resolved = updated
+        .resolve_slice(&store, 0..expected.len())
+        .expect("Failed to resolve");
+
+    let mismatch = resolved
+        .iter()
+        .zip(expected.iter())
+        .position(|(got, want)| got != want);
+
+    assert_eq!(resolved.len(), expected.len(), "Resolved length");
+    assert_eq!(mismatch, None, "Index of the first mismatched byte");
+}
+
+/// `update_flat` must report the size its parts cover, not the number of bytes it wrote.
+#[test]
+fn update_reports_the_full_size_after_a_partial_write() {
+    let store = InMemoryStore::default();
+
+    let original = sequential_bytes(2 * LHKEY_SEGMENT_MAX_LENGTH);
+    let lhkey = lhkey_of_depth(&store, &original, 0);
+
+    let updated = lhkey
+        .update(&store, &[0xAA; 10], 100..110)
+        .expect("Failed to update");
+
+    assert_eq!(updated.size(), original.len());
+}
