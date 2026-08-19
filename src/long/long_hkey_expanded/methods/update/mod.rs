@@ -1,5 +1,8 @@
 pub mod helpers;
 
+#[cfg(test)]
+mod tests;
+
 use std::{
     ops::{Add, Mul, Sub},
     sync::Arc,
@@ -33,6 +36,11 @@ impl LongHkeyExpanded {
         }
 
         let length = data.len().min(range.end - range.start);
+
+        // Writing no bytes is the identity
+        if length == 0 {
+            return Ok(self.clone());
+        }
 
         let range = range.start..range.start + length;
         let data = &data[..length];
@@ -127,6 +135,14 @@ impl LongHkeyExpanded {
         }
 
         let range = range.start..range.end.min(range.start + data.len());
+
+        // Writing no bytes is the identity. Returning here also terminates the recursion below,
+        // which an empty range never shrinks: the segments handed to it keep the same depth and
+        // size as their parent.
+        if range.is_empty() {
+            return Ok(self.clone());
+        }
+
         let length = range.end.max(self.size);
         let depth = calculate_depth(self.depth, range.end);
         let segment_length = calculate_segment_length(depth);
