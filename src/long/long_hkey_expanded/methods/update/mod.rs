@@ -15,7 +15,7 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
     long::{long_hkey_expanded::constants::LHKEY_SEGMENT_MAX_LENGTH, LongHkeyExpanded},
-    Hkey, HkeyError, Range, Store,
+    Hkey, HkeyBug, HkeyError, Range, Store,
 };
 
 impl LongHkeyExpanded {
@@ -114,7 +114,7 @@ impl LongHkeyExpanded {
                 }
 
                 // all variants have been exhausted
-                Err(HkeyError::Unreachable)?
+                Err(HkeyError::Bug(HkeyBug::UpdateFlatAllVariantsExhausted))?
             })
             .collect();
 

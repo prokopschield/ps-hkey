@@ -11,6 +11,7 @@ use arrayvec::ArrayString;
 use arrayvec::ArrayVec;
 pub use async_store::AsyncStore;
 pub use constants::*;
+pub use error::HkeyBug;
 pub use error::HkeyConstructionError;
 pub use error::HkeyError;
 pub use error::HkeyFromCompactError;

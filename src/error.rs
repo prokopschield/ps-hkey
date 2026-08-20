@@ -6,6 +6,7 @@ use std::str::Utf8Error;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
+#[non_exhaustive]
 pub enum HkeyError {
     #[error(transparent)]
     Buffer(#[from] BufferError),
@@ -22,6 +23,8 @@ pub enum HkeyError {
     #[error(transparent)]
     Utf8(#[from] Utf8Error),
 
+    #[error("Bug in ps-hkey: {0}")]
+    Bug(#[from] HkeyBug),
     #[error("Invalid hkey format")]
     Format,
     #[error("Invalid range, entity is of size {0}")]
@@ -32,8 +35,13 @@ pub enum HkeyError {
     Storage,
     #[error("While storing a List or LongHkey, expected Hkey::Encrypted, got {0}")]
     EncryptedIntoListRef(crate::Hkey),
-    #[error("Reached unreachable code.")]
-    Unreachable,
+}
+
+#[derive(Error, Debug)]
+#[non_exhaustive]
+pub enum HkeyBug {
+    #[error("LongHkeyExpanded::update_flat found no branch matching the part's position")]
+    UpdateFlatAllVariantsExhausted,
 }
 
 pub type Result<T, E = HkeyError> = std::result::Result<T, E>;
