@@ -40,6 +40,8 @@ pub enum HkeyError {
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum HkeyBug {
+    #[error("LongHkeyExpanded::resolve_slice returned more bytes than requested")]
+    ResolvedSliceTooLong,
     #[error("LongHkeyExpanded::update_flat found no branch matching the part's position")]
     UpdateFlatAllVariantsExhausted,
 }

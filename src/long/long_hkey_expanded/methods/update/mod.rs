@@ -4,12 +4,14 @@ pub mod helpers;
 mod tests;
 
 use std::{
+    cmp::Ordering::{Equal, Greater, Less},
     ops::{Add, Mul, Sub},
     sync::Arc,
 };
 
 use helpers::{calculate_depth, calculate_segment_length};
-use ps_datachunk::{DataChunk, DataChunkError};
+use ps_buffer::Buffer;
+use ps_datachunk::{Bytes, DataChunk, DataChunkError};
 use ps_util::ToResult;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
@@ -61,9 +63,9 @@ impl LongHkeyExpanded {
                         }
                     }
 
-                    let slice = &self.resolve_slice(store, part_start..part_end)?[..];
+                    let slice = self.resolve_slice_exact(store, part_start..part_end)?;
 
-                    return (part_start..part_end, store.put(slice)?).ok();
+                    return (part_start..part_end, store.put(&slice)?).ok();
                 }
 
                 // part is intirely within range
@@ -77,16 +79,14 @@ impl LongHkeyExpanded {
                 if range.start >= part_start && range.end <= part_end {
                     let mut buffer = Vec::with_capacity(part_end - part_start);
 
-                    let original = self.resolve_slice(store, part_start..part_end)?;
+                    let original = self.resolve_slice_exact(store, part_start..part_end)?;
 
                     let data_start = range.start - part_start;
                     let data_end = data_start + data.len();
 
-                    let orig_start = data_end.min(original.len());
-
                     buffer.extend_from_slice(&original[..data_start]);
                     buffer.extend_from_slice(data);
-                    buffer.extend_from_slice(&original[orig_start..]);
+                    buffer.extend_from_slice(&original[data_end..]);
 
                     return (part_start..part_end, store.put(&buffer)?).ok();
                 }
@@ -95,7 +95,9 @@ impl LongHkeyExpanded {
                 if range.start > part_start {
                     let mut buffer = Vec::with_capacity(part_end - part_start);
 
-                    buffer.extend_from_slice(&self.resolve_slice(store, part_start..range.start)?);
+                    buffer.extend_from_slice(
+                        &self.resolve_slice_exact(store, part_start..range.start)?,
+                    );
                     buffer.extend_from_slice(&data[..part_end - range.start]);
 
                     return (part_start..part_end, store.put(&buffer)?).ok();
@@ -185,5 +187,35 @@ impl LongHkeyExpanded {
         let lhkey = Self::new(depth, length, parts);
 
         Ok(lhkey)
+    }
+
+    /// Resolves `range` in full, zero-filling whatever lies past the end of the receiver.
+    ///
+    /// A write past the current size grows the buffer, so the parts spanning the gap declare more
+    /// bytes than the receiver holds.
+    fn resolve_slice_exact<'a, C, E, S>(&self, store: &'a S, range: Range) -> Result<Bytes, E>
+    where
+        C: DataChunk,
+        E: From<HkeyError> + From<DataChunkError> + Send,
+        S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
+    {
+        let resolved = self.resolve_slice(store, range.clone())?;
+        let length = range.end - range.start;
+
+        match resolved.len().cmp(&length) {
+            Greater => Err(HkeyError::Bug(HkeyBug::ResolvedSliceTooLong))?,
+            Equal => return Ok(resolved),
+            Less => {}
+        }
+
+        let mut buffer = Buffer::with_capacity(length).map_err(HkeyError::from)?;
+
+        buffer
+            .extend_from_slice(&resolved)
+            .map_err(HkeyError::from)?;
+
+        buffer.resize(length, 0).map_err(HkeyError::from)?;
+
+        Ok(buffer.into())
     }
 }
