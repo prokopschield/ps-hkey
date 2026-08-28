@@ -75,17 +75,13 @@ impl LongHkeyExpanded {
 
             let parts: Result<Vec<_>, E> = iterator
                 .map(|index| {
-                    let begin = range.start + index * LHKEY_SEGMENT_MAX_LENGTH;
-                    let end = range
-                        .end
-                        .min(range.start + (index + 1) * LHKEY_SEGMENT_MAX_LENGTH);
-                    let data = self.resolve_slice(store, begin..end)?;
+                    let begin = index * LHKEY_SEGMENT_MAX_LENGTH;
+                    let end = length.min(begin + LHKEY_SEGMENT_MAX_LENGTH);
+
+                    let data = self.resolve_slice(store, range.start + begin..range.start + end)?;
                     let hkey = store.put(&data)?;
 
-                    Ok::<_, E>((
-                        index * LHKEY_SEGMENT_MAX_LENGTH..(index + 1) * LHKEY_SEGMENT_MAX_LENGTH,
-                        hkey,
-                    ))
+                    Ok::<_, E>((begin..end, hkey))
                 })
                 .collect();
 
@@ -104,12 +100,18 @@ impl LongHkeyExpanded {
 
         let parts: Result<Vec<_>, E> = iterator
             .map(|index| {
-                let begin = range.start + index * segment_length;
-                let end = range.end.min(range.start + (index + 1) * segment_length);
-                let lhkey = self.normalize_segment(store, depth - 1, begin..end)?;
-                let hkey = Hkey::LongHkey(lhkey.store(store)?);
+                let begin = index * segment_length;
+                let end = length.min(begin + segment_length);
 
-                Ok::<_, E>((index * segment_length..(index + 1) * segment_length, hkey))
+                let segment = self.normalize_segment(
+                    store,
+                    depth - 1,
+                    range.start + begin..range.start + end,
+                )?;
+
+                let hkey = Hkey::LongHkey(segment.store(store)?);
+
+                Ok::<_, E>((begin..end, hkey))
             })
             .collect();
 

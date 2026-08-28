@@ -1,6 +1,7 @@
 #![allow(clippy::expect_used)]
 
 use super::*;
+use crate::long::long_hkey_expanded::constants::LHKEY_LEVEL_MAX_LENGTH;
 use crate::{InMemoryStore, InMemoryStoreError};
 
 #[allow(clippy::cast_possible_truncation)]
@@ -252,7 +253,7 @@ fn update_extending_past_the_end_keeps_the_head() {
     assert_eq!(&resolved[50..], &patch[..]);
 }
 
-/// `normalize_segment` preserves content even though its final part range overruns.
+/// `normalize_segment` preserves the content of the range it normalizes.
 #[test]
 fn normalize_segment_preserves_content() {
     let store = InMemoryStore::default();
@@ -269,6 +270,42 @@ fn normalize_segment_preserves_content() {
         .expect("Failed to resolve");
 
     assert_eq!(&resolved[..], &original[..]);
+}
+
+/// The parts `normalize_segment` emits must not declare more bytes than the segment holds.
+#[test]
+fn normalize_segment_declares_parts_within_its_size() {
+    let store = InMemoryStore::default();
+
+    let original = sequential_bytes(5000);
+    let lhkey = lhkey_of_depth(&store, &original, 0);
+
+    let segment = lhkey
+        .normalize_segment(&store, 0, 0..original.len())
+        .expect("Failed to normalize");
+
+    let last = segment.parts.last().expect("No parts").0.clone();
+
+    assert_eq!(last.end, segment.size(), "Last part overruns the segment");
+}
+
+/// The recursive branch declares its parts against the same grid, so it must clamp the last one
+/// too. A segment of this length is split into one full part and a short tail.
+#[test]
+fn normalize_segment_declares_parts_within_its_size_at_depth_one() {
+    let store = InMemoryStore::default();
+
+    let original = sequential_bytes(LHKEY_LEVEL_MAX_LENGTH + LHKEY_SEGMENT_MAX_LENGTH);
+    let lhkey = lhkey_of_depth(&store, &original, 0);
+
+    let segment = lhkey
+        .normalize_segment(&store, 1, 0..original.len())
+        .expect("Failed to normalize");
+
+    let last = segment.parts.last().expect("No parts").0.clone();
+
+    assert_eq!(segment.parts.len(), 2, "Part count");
+    assert_eq!(last.end, segment.size(), "Last part overruns the segment");
 }
 
 /// A `LongHkeyExpanded` must survive a `Display` and `parse` round trip.
