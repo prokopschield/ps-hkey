@@ -21,7 +21,9 @@ use crate::{
 };
 
 impl LongHkeyExpanded {
-    /// only to be used with depth=0
+    /// Rewrites the receiver as a depth-0 node whose parts sit on the
+    /// `LHKEY_SEGMENT_MAX_LENGTH` grid. Only valid on depth-0 receivers; [`Self::update`]
+    /// dispatches here iff the effective depth is 0.
     pub fn update_flat<'a, C, E, S>(
         &self,
         store: &'a S,
@@ -137,9 +139,8 @@ impl LongHkeyExpanded {
 
         let range = range.start..range.end.min(range.start + data.len());
 
-        // Writing no bytes is the identity. Returning here also terminates the recursion below,
-        // which an empty range never shrinks: the segments handed to it keep the same depth and
-        // size as their parent.
+        // Writing no bytes is the identity. Returning early also avoids renormalizing and
+        // re-storing every segment of the receiver for a write that changes nothing.
         if range.is_empty() {
             return Ok(self.clone());
         }

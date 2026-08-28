@@ -18,11 +18,13 @@ impl LongHkeyExpanded {
     ///
     /// # Arguments
     /// - `store`: The data store for resolving and storing chunks.
-    /// - `depth`: The recursion depth for segment splitting.
+    /// - `depth`: A lower bound on the result's depth label; the effective label is
+    ///   `calculate_depth(depth, length)`. Results whose parts are direct data hkeys are
+    ///   labelled 0 regardless of part count.
     /// - `range`: The range to normalize (start..end, inclusive start, exclusive end).
     ///
     /// # Returns
-    /// An `Arc<LongHkeyExpanded>` containing the normalized segment, or an error if resolution fails.
+    /// A `LongHkeyExpanded` containing the normalized segment, or an error if resolution fails.
     pub fn normalize_segment<'a, C, E, S>(
         &self,
         store: &'a S,
@@ -87,7 +89,7 @@ impl LongHkeyExpanded {
 
             let parts = Arc::from(parts?.into_boxed_slice());
 
-            let lhkey = Self::new(1, length, parts);
+            let lhkey = Self::new(0, length, parts);
 
             return Ok(lhkey);
         }
@@ -120,5 +122,109 @@ impl LongHkeyExpanded {
         let lhkey = Self::new(depth, length, parts);
 
         Ok(lhkey)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::expect_used)]
+
+    use super::*;
+    use crate::long::long_hkey_expanded::constants::LHKEY_LEVEL_MAX_LENGTH;
+    use crate::InMemoryStore;
+
+    #[allow(clippy::cast_possible_truncation)]
+    fn sequential_bytes(len: usize) -> Vec<u8> {
+        (0..len).map(|i| (i % 251) as u8).collect()
+    }
+
+    /// Builds a valid depth-0 node whose parts cover `original` on the
+    /// [`LHKEY_SEGMENT_MAX_LENGTH`] grid.
+    fn flat_fixture(store: &InMemoryStore, original: &[u8]) -> LongHkeyExpanded {
+        let seg = LHKEY_SEGMENT_MAX_LENGTH;
+
+        let parts: Vec<(Range, Hkey)> = (0..original.len().div_ceil(seg))
+            .map(|index| {
+                let start = index * seg;
+                let end = (start + seg).min(original.len());
+                let hkey = store
+                    .put(&original[start..end])
+                    .expect("Failed to store segment");
+
+                (start..end, hkey)
+            })
+            .collect();
+
+        LongHkeyExpanded::new(0, original.len(), parts.into())
+    }
+
+    /// A result whose parts are direct data hkeys carries the depth-0 label, regardless of part
+    /// count.
+    #[test]
+    fn flat_multi_part_result_is_depth_zero() {
+        let store = InMemoryStore::default();
+
+        let original = sequential_bytes(10000);
+        let lhkey = flat_fixture(&store, &original);
+
+        let segment = lhkey
+            .normalize_segment(&store, 0, 0..original.len())
+            .expect("Failed to normalize");
+
+        assert_eq!(segment.depth, 0, "Depth label");
+        assert!(
+            segment.to_string().starts_with("{0;10000;"),
+            "Serialized prefix"
+        );
+    }
+
+    /// `normalize_segment` and `from_blob` converge on the same node, and therefore the same
+    /// serialization and content address, for the same content.
+    #[test]
+    fn result_matches_from_blob() {
+        let store = InMemoryStore::default();
+
+        let original = sequential_bytes(10000);
+        let via_blob = LongHkeyExpanded::from_blob(&store, &original).expect("Failed to build");
+        let node = flat_fixture(&store, &original);
+
+        let normalized = node
+            .normalize_segment(&store, 0, 0..original.len())
+            .expect("Failed to normalize");
+
+        assert_eq!(normalized, via_blob, "Node equality");
+        assert_eq!(
+            normalized.to_string(),
+            via_blob.to_string(),
+            "Serialization equality"
+        );
+    }
+
+    /// The recursive branch labels its children exactly one level below the parent. A fixture on
+    /// the [`LHKEY_SEGMENT_MAX_LENGTH`] grid keeps the existing-segment shortcut from bypassing
+    /// the flat multi-part branch.
+    #[test]
+    fn recursive_children_are_labelled_one_less() {
+        let store = InMemoryStore::default();
+
+        let original = sequential_bytes(LHKEY_LEVEL_MAX_LENGTH + LHKEY_SEGMENT_MAX_LENGTH);
+        let lhkey = flat_fixture(&store, &original);
+
+        let segment = lhkey
+            .normalize_segment(&store, 1, 0..original.len())
+            .expect("Failed to normalize");
+
+        assert_eq!(segment.depth, 1, "Parent depth label");
+
+        for (range, hkey) in segment.parts.iter() {
+            match hkey {
+                Hkey::LongHkey(child) => {
+                    let child = child.expand(&store).expect("Failed to expand");
+
+                    assert_eq!(child.depth, 0, "Child depth label for part {range:?}");
+                }
+                other => panic!("Expected a LongHkey part, got {other:?}"),
+            }
+        }
     }
 }

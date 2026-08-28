@@ -4,6 +4,9 @@ use crate::long::long_hkey_expanded::constants::{
     LHKEY_LEVEL_MAX_LENGTH, LHKEY_LEVEL_MAX_LENGTH_LOG2, LHKEY_PART_COUNT_LOG2,
 };
 
+/// Returns the depth label for a node covering `end` bytes: the smallest `d` such that
+/// `end <= LHKEY_LEVEL_MAX_LENGTH << (LHKEY_PART_COUNT_LOG2 * d)`, but never less than `min`,
+/// the floor the caller has already committed to.
 pub fn calculate_depth(min: u32, end: usize) -> u32 {
     if end <= LHKEY_LEVEL_MAX_LENGTH {
         return min;

@@ -11,6 +11,9 @@ fn sequential_bytes(len: usize) -> Vec<u8> {
 
 /// Builds a [`LongHkeyExpanded`] of the given depth whose parts cover `original` in
 /// segments of at most [`LHKEY_SEGMENT_MAX_LENGTH`] bytes.
+///
+/// Depth 0 builds a valid node. A nonzero depth stamps a deliberately invalid label onto
+/// direct-data parts, modelling legacy or adversarial wire input.
 fn lhkey_of_depth(store: &InMemoryStore, original: &[u8], depth: u32) -> LongHkeyExpanded {
     let seg = LHKEY_SEGMENT_MAX_LENGTH;
 
@@ -89,14 +92,15 @@ fn update_flat_inverted_range_errors() {
 }
 
 /// At depth 0, `update` delegates to `update_flat`, whose own guard would reject the range.
-/// The fixture is therefore built at depth 1, so that rejection can only come from `update`.
+/// The fixture is therefore a genuine depth-1 tree built by `from_blob`, so that rejection can
+/// only come from `update` itself.
 #[test]
 #[allow(clippy::reversed_empty_ranges)]
 fn update_inverted_range_errors() {
     let store = InMemoryStore::default();
 
-    let original = sequential_bytes(2 * LHKEY_SEGMENT_MAX_LENGTH);
-    let lhkey = lhkey_of_depth(&store, &original, 1);
+    let original = sequential_bytes(2 * LHKEY_LEVEL_MAX_LENGTH);
+    let lhkey = LongHkeyExpanded::from_blob(&store, &original).expect("Failed to build");
 
     let result = lhkey.update(&store, &[0x66; 10], 20..10);
 
@@ -129,34 +133,60 @@ fn update_empty_range_is_accepted() {
         .expect("An empty range should be accepted");
 }
 
-/// At depth >= 1 an empty range must be short-circuited by the early return in `update`: the segments
-/// `normalize_segment` hands back keep the same depth and size as their parent, so the recursion
-/// has no shrinking measure and would overflow the stack. Also reachable as
-/// `update(store, &[], 20..30)`, which clamps to `20..20`.
+/// At depth >= 1 an empty range is short-circuited by the early return in `update`. The write is
+/// the identity either way, but the early return avoids renormalizing and re-storing every
+/// segment of the receiver. Also reachable as `update(store, &[], 20..30)`, which clamps to
+/// `20..20`.
 #[test]
 fn update_empty_range_at_depth_one_is_accepted() {
     let store = InMemoryStore::default();
 
-    let original = sequential_bytes(2 * LHKEY_SEGMENT_MAX_LENGTH);
-    let lhkey = lhkey_of_depth(&store, &original, 1);
+    let original = sequential_bytes(2 * LHKEY_LEVEL_MAX_LENGTH);
+    let lhkey = LongHkeyExpanded::from_blob(&store, &original).expect("Failed to build");
 
     lhkey
         .update(&store, &[0x66; 10], 20..20)
         .expect("An empty range should be accepted");
 }
 
-/// Empty data clamps a non-empty range to an empty one, reaching the same recursion as
+/// Empty data clamps a non-empty range to an empty one, reaching the same early return as
 /// [`update_empty_range_at_depth_one_is_accepted`] without an empty range in the signature.
 #[test]
 fn update_empty_data_at_depth_one_is_accepted() {
     let store = InMemoryStore::default();
 
-    let original = sequential_bytes(2 * LHKEY_SEGMENT_MAX_LENGTH);
-    let lhkey = lhkey_of_depth(&store, &original, 1);
+    let original = sequential_bytes(2 * LHKEY_LEVEL_MAX_LENGTH);
+    let lhkey = LongHkeyExpanded::from_blob(&store, &original).expect("Failed to build");
 
     lhkey
         .update(&store, &[], 20..30)
         .expect("Empty data should be accepted");
+}
+
+/// Parsing accepts legacy nodes whose direct-data parts carry a depth-1 label, the shape the old
+/// `normalize_segment` stored. A non-empty `update` on such a node must terminate: its segments
+/// are renormalized to depth 0, so the recursion shrinks on `depth`. Before depth unification
+/// this call recursed unboundedly.
+#[test]
+fn update_on_mislabelled_depth_one_node_terminates() {
+    let store = InMemoryStore::default();
+
+    let original = sequential_bytes(2 * LHKEY_SEGMENT_MAX_LENGTH);
+    let lhkey = lhkey_of_depth(&store, &original, 1);
+
+    let updated = lhkey
+        .update(&store, &[0xAA; 10], 100..110)
+        .expect("Failed to update");
+
+    let resolved = updated
+        .resolve_slice(&store, 0..original.len())
+        .expect("Failed to resolve");
+
+    let mut expected = original;
+
+    expected[100..110].fill(0xAA);
+
+    assert_eq!(&resolved[..], &expected[..]);
 }
 
 /// A patch that starts inside one segment and ends inside a later one takes the "part begins with

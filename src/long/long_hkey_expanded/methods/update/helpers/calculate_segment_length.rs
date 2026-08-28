@@ -2,6 +2,8 @@ use crate::long::long_hkey_expanded::constants::{
     LHKEY_PART_COUNT_LOG2, LHKEY_SEGMENT_MAX_LENGTH_LOG2,
 };
 
+/// Returns the log2 of [`calculate_segment_length`], clamped so the shift cannot overflow
+/// `usize`.
 #[inline]
 pub const fn calculate_segment_length_log2(depth: u32) -> u32 {
     let log2 = LHKEY_SEGMENT_MAX_LENGTH_LOG2 + depth * LHKEY_PART_COUNT_LOG2;
@@ -13,6 +15,10 @@ pub const fn calculate_segment_length_log2(depth: u32) -> u32 {
     }
 }
 
+/// Returns the maximum number of bytes a single part of a depth-`depth` node may span:
+/// `LHKEY_SEGMENT_MAX_LENGTH << (LHKEY_PART_COUNT_LOG2 * depth)`. This equals the maximum
+/// total span of a node of depth `depth - 1`, with `LHKEY_SEGMENT_MAX_LENGTH` as the depth-0
+/// base case.
 #[inline]
 pub const fn calculate_segment_length(depth: u32) -> usize {
     1 << calculate_segment_length_log2(depth)

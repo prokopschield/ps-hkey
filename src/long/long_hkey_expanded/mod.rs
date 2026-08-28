@@ -20,12 +20,36 @@ use super::LongHkey;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct LongHkeyExpanded {
+    /// Height of `LongHkey` indirection below this node.
+    ///
+    /// - `depth == 0` iff every part resolves directly to data, i.e. no part is an
+    ///   `Hkey::LongHkey` or `Hkey::LongHkeyExpanded`. Builders emit depth-0 parts of at most
+    ///   `LHKEY_SEGMENT_MAX_LENGTH` bytes each, aligned to that grid.
+    /// - `depth == d >= 1` iff every part is an `Hkey::LongHkey` (or its expansion) whose node
+    ///   has depth at most `d - 1`. `normalize_segment` produces children of exactly `d - 1`;
+    ///   `from_blob` may label a short tail chunk shallower.
+    ///
+    /// Builders guarantee that a node of depth `d` spans at most
+    /// `LHKEY_LEVEL_MAX_LENGTH << (LHKEY_PART_COUNT_LOG2 * d)` bytes, each part spanning at
+    /// most `calculate_segment_length(d)` bytes.
+    ///
+    /// The label is hash-bearing: it is serialized as the leading field of the
+    /// `{depth;size;parts}` wire form, so relabelling a node changes its content address.
+    /// Parsing does not validate the label, and nodes read from a store may predate this
+    /// invariant; readers ignore `depth` entirely, and `update` terminates even on mislabelled
+    /// nodes.
     depth: u32,
     size: usize,
     parts: Arc<[(Range, Hkey)]>,
 }
 
 impl LongHkeyExpanded {
+    /// Creates a `LongHkeyExpanded` from raw components, performing no validation.
+    ///
+    /// The caller must uphold the `depth` invariant documented on the field: `0` for
+    /// direct-data parts, `d >= 1` for `LongHkey` parts of depth at most `d - 1`. A mislabelled
+    /// node still resolves correctly, but serializes, and therefore hashes, differently from a
+    /// correctly labelled node with the same parts, defeating deduplication.
     #[must_use]
     pub const fn new(depth: u32, size: usize, parts: Arc<[(Range, Hkey)]>) -> Self {
         Self { depth, size, parts }
