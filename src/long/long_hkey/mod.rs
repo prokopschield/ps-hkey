@@ -70,7 +70,8 @@ impl LongHkey {
         let depth: u32 = parts[0].parse().map_err(HkeyError::from)?;
         let size: usize = parts[1].parse().map_err(HkeyError::from)?;
 
-        let parts = parts[2].split(',').map(|part| {
+        let parts = parts[2].split(',').filter(|part| !part.is_empty());
+        let parts = parts.map(|part| {
             let (range, hkey) = part.split_once(':').ok_or(HkeyError::Format)?;
             let (start, end) = range.split_once('-').ok_or(HkeyError::Format)?;
             let start: usize = start.parse()?;
@@ -120,5 +121,111 @@ impl LongHkey {
         let bytes = chunk.data_ref();
 
         Self::expand_from_lhkey_encrypted_str(self, bytes)?.ok()
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use std::sync::Arc;
+
+    use crate::{Hkey, HkeyError, InMemoryStore, LongHkey, LongHkeyExpanded};
+
+    #[test]
+    fn expand_from_lhkey_str_accepts_empty_part_list() {
+        let lhkey = LongHkey::expand_from_lhkey_str(b"{0;0;}").expect("Failed to parse");
+
+        assert_eq!(lhkey, LongHkeyExpanded::default());
+    }
+
+    #[test]
+    fn empty_lhkey_display_and_parse_are_inverse() {
+        let hkey = Hkey::try_parse("{0;0;}").expect("Failed to parse");
+
+        assert!(matches!(hkey, Hkey::LongHkeyExpanded(_)));
+        assert_eq!(hkey.to_string(), "{0;0;}");
+    }
+
+    #[test]
+    fn expand_from_lhkey_str_accepts_empty_parts_with_nonzero_size() {
+        let lhkey = LongHkey::expand_from_lhkey_str(b"{0;5;}").expect("Failed to parse");
+
+        assert_eq!(lhkey.size(), 5);
+    }
+
+    #[test]
+    fn expand_from_lhkey_str_ignores_stray_commas() {
+        let clean = LongHkey::expand_from_lhkey_str(b"{0;0;}").expect("Failed to parse");
+        let stray = LongHkey::expand_from_lhkey_str(b"{0;0;,,,}").expect("Failed to parse");
+
+        assert_eq!(clean, stray);
+    }
+
+    #[test]
+    fn expand_from_lhkey_str_ignores_empty_items_between_parts() {
+        let clean =
+            LongHkey::expand_from_lhkey_str(b"{0;8;0-3:AAAA,4-7:BBBB}").expect("Failed to parse");
+        let stray = LongHkey::expand_from_lhkey_str(b"{0;8;,0-3:AAAA,,4-7:BBBB,}")
+            .expect("Failed to parse");
+
+        assert_eq!(clean, stray);
+    }
+
+    #[test]
+    fn expand_from_lhkey_str_parses_part_ranges_inclusive() {
+        let parsed = LongHkey::expand_from_lhkey_str(b"{0;4;0-3:AAAA}").expect("Failed to parse");
+
+        let hkey = Hkey::parse("AAAA").expect("Failed to parse hkey");
+        let expected = LongHkeyExpanded::new(0, 4, Arc::from([(0..4, hkey)]));
+
+        assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn lhkey_str_display_and_parse_are_inverse_for_nonempty_parts() {
+        let store = InMemoryStore::default();
+
+        let node = LongHkeyExpanded::default()
+            .update(&store, &[42u8; 10000], 0..10000)
+            .expect("Failed to update");
+
+        let reparsed =
+            LongHkey::expand_from_lhkey_str(node.to_string().as_bytes()).expect("Failed to parse");
+
+        assert_eq!(node, reparsed);
+    }
+
+    #[test]
+    fn expand_from_lhkey_str_rejects_missing_braces() {
+        let result = LongHkey::expand_from_lhkey_str(b"0;0;ab");
+
+        assert!(matches!(result, Err(HkeyError::Format)));
+    }
+
+    #[test]
+    fn expand_from_lhkey_str_rejects_wrong_field_count() {
+        let two_fields = LongHkey::expand_from_lhkey_str(b"{0;123}");
+        let four_fields = LongHkey::expand_from_lhkey_str(b"{0;0;0;}");
+
+        assert!(matches!(two_fields, Err(HkeyError::Format)));
+        assert!(matches!(four_fields, Err(HkeyError::Format)));
+    }
+
+    #[test]
+    fn expand_from_lhkey_str_rejects_malformed_parts() {
+        let missing_colon = LongHkey::expand_from_lhkey_str(b"{0;4;0-3}");
+        let missing_dash = LongHkey::expand_from_lhkey_str(b"{0;4;03:AAAA}");
+
+        assert!(matches!(missing_colon, Err(HkeyError::Format)));
+        assert!(matches!(missing_dash, Err(HkeyError::Format)));
+    }
+
+    #[test]
+    fn expand_from_lhkey_str_rejects_non_numeric_header() {
+        let bad_depth = LongHkey::expand_from_lhkey_str(b"{a;0;}");
+        let bad_size = LongHkey::expand_from_lhkey_str(b"{0;b;}");
+
+        assert!(matches!(bad_depth, Err(HkeyError::ParseInt(_))));
+        assert!(matches!(bad_size, Err(HkeyError::ParseInt(_))));
     }
 }
