@@ -17,7 +17,11 @@ pub struct LongHkey {
 
 impl Display for LongHkey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("L{}{}", self.hash, self.key))
+        f.write_fmt(format_args!(
+            "L{}{}",
+            self.hash.display_base64(),
+            self.key.display_base64()
+        ))
     }
 }
 

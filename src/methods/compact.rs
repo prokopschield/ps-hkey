@@ -1,14 +1,13 @@
-use ps_base64::base64;
 use ps_datachunk::Bytes;
 use ps_hash::{Hash, HASH_SIZE_COMPACT};
 
-use crate::{Hkey, Store};
+use crate::{decode_base64, Hkey, Store};
 
 impl Hkey {
     pub fn compact<S: Store>(&self, store: &S) -> Result<Bytes, S::Error> {
         match self.shrink(store)? {
             Self::Raw(value) => Ok(Bytes::copy_from_slice(&value)),
-            Self::Base64(value) => Ok(base64::decode(value.as_bytes()).into()),
+            Self::Base64(value) => Ok(decode_base64(value.as_bytes())?.into()),
             Self::Direct(hash) => Ok(Bytes::copy_from_slice(hash.compact())),
             Self::Encrypted(hash, key) => Ok(compact_dhash(&hash, &key, 0)),
             Self::ListRef(hash, key) => Ok(compact_dhash(&hash, &key, 1)),
@@ -96,7 +95,7 @@ mod tests {
             _ => None,
         }
         .expect("Expected Direct variant");
-        assert_eq!(h.to_string(), hkey.to_string());
+        assert_eq!(h.to_base64(), hkey.to_string());
     }
 
     #[test]

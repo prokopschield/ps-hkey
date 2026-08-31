@@ -61,16 +61,16 @@ mod tests {
             ),
             Hkey::Raw(_) => Hkey::parse(h.to_string()).expect("Failed to parse Hkey"),
 
-            Hkey::Direct(hash) => Hkey::Direct(canonize_hash(hash.to_string())),
+            Hkey::Direct(hash) => Hkey::Direct(canonize_hash(hash.to_base64())),
 
             Hkey::Encrypted(hash, key) => Hkey::Encrypted(
-                canonize_hash(hash.to_string()),
-                canonize_hash(key.to_string()),
+                canonize_hash(hash.to_base64()),
+                canonize_hash(key.to_base64()),
             ),
 
             Hkey::ListRef(hash, key) => Hkey::ListRef(
-                canonize_hash(hash.to_string()),
-                canonize_hash(key.to_string()),
+                canonize_hash(hash.to_base64()),
+                canonize_hash(key.to_base64()),
             ),
 
             Hkey::List(hkeys) => {

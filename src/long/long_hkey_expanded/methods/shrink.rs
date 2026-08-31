@@ -28,13 +28,13 @@ mod tests {
 
         let orig_data = [18u8; 10000];
 
-        assert_eq!(store.put(&orig_data)?.to_string(), "L_BnefA0gZ2e4bYAxal_QxJ4zd2CY9MfIm2s1_5j_dESsActe_TkhKvNYZXR90l7QJvkR3NtOYRe3EiaNXcZ_KdxG1PirhJWdOZ-cjIXf44bqAUczbJkRIddyNSow4iRl");
+        assert_eq!(store.put(&orig_data)?.to_string(), "LnPrRVAzZYr-TMwLv8fpYEMLTPgIn7twlHeDa-tr44LV6AdDmMPbz2FWRzvdHjhzdb6GQPFAT31Z-0oMIrHXGJM5f35HaCdfmTBaqPRz5x46qAbNTxv1PzkKVuBivXxi3");
 
         let lhkey = LongHkeyExpanded::default().update(&store, &orig_data, 0..orig_data.len())?;
 
         let hkey = lhkey.shrink(&store)?;
 
-        assert_eq!(hkey.to_string(), "L_BnefA0gZ2e4bYAxal_QxJ4zd2CY9MfIm2s1_5j_dESsActe_TkhKvNYZXR90l7QJvkR3NtOYRe3EiaNXcZ_KdxG1PirhJWdOZ-cjIXf44bqAUczbJkRIddyNSow4iRl");
+        assert_eq!(hkey.to_string(), "LnPrRVAzZYr-TMwLv8fpYEMLTPgIn7twlHeDa-tr44LV6AdDmMPbz2FWRzvdHjhzdb6GQPFAT31Z-0oMIrHXGJM5f35HaCdfmTBaqPRz5x46qAbNTxv1PzkKVuBivXxi3");
 
         let data = hkey.resolve_slice(&store, 0..10000)?;
 

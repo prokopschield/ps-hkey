@@ -23,7 +23,6 @@ use ps_datachunk::Bytes;
 use ps_datachunk::DataChunk;
 use ps_datachunk::DataChunkError;
 use ps_datachunk::OwnedDataChunk;
-use ps_datachunk::SerializedDataChunk;
 pub use ps_hash::Hash;
 use ps_promise::PromiseRejection;
 use ps_util::ToResult;
@@ -145,20 +144,29 @@ impl Hkey {
 
     #[must_use]
     pub fn format_list(list: &[Self]) -> String {
-        let Some(first) = list.first() else {
-            return "[]".to_string();
-        };
+        let mut accumulator = String::new();
 
-        let mut accumulator = format!("[{first}");
-
-        list[1..].iter().for_each(|hkey| {
-            accumulator.push(',');
-            accumulator.push_str(&hkey.to_string());
-        });
-
-        accumulator.push(']');
+        // Writing into a `String` cannot fail.
+        let _ = Self::fmt_list(list, &mut accumulator);
 
         accumulator
+    }
+
+    /// Writes the textual form of `list` into `sink`.
+    fn fmt_list<W: std::fmt::Write>(list: &[Self], sink: &mut W) -> std::fmt::Result {
+        sink.write_char('[')?;
+
+        let mut items = list.iter();
+
+        if let Some(first) = items.next() {
+            write!(sink, "{first}")?;
+        }
+
+        for item in items {
+            write!(sink, ",{item}")?;
+        }
+
+        sink.write_char(']')
     }
 
     /// Transmutates Encrypted(Hash,Key) into ListRef(Hash,Key)
@@ -180,7 +188,7 @@ impl Hkey {
         let chunk = match self {
             Self::Empty => Bytes::new(),
             Self::Raw(raw) => Bytes::from_owner(raw.clone()),
-            Self::Base64(base64) => ps_base64::decode(base64.as_bytes()).into(),
+            Self::Base64(base64) => decode_base64(base64.as_bytes())?.into(),
             Self::Direct(hash) => store.get(hash)?.into_bytes(),
             Self::Encrypted(hash, key) => Self::resolve_encrypted(hash, key, store)?.into_bytes(),
             Self::ListRef(hash, key) => Self::resolve_list_ref(hash, key, store)?,
@@ -196,7 +204,7 @@ impl Hkey {
         hash: &Hash,
         key: &Hash,
         store: &'a S,
-    ) -> TResult<SerializedDataChunk, E>
+    ) -> TResult<OwnedDataChunk, E>
     where
         C: DataChunk,
         E: From<DataChunkError>,
@@ -359,7 +367,7 @@ impl Hkey {
         let chunk = match self {
             Self::Empty => Bytes::new(),
             Self::Raw(raw) => Bytes::from_owner(raw.clone()),
-            Self::Base64(base64) => ps_base64::decode(base64.as_bytes()).into(),
+            Self::Base64(base64) => decode_base64(base64.as_bytes())?.into(),
             Self::Direct(hash) => store.get(hash).await?.into_bytes(),
             Self::Encrypted(hash, key) => Self::resolve_encrypted_async(hash, key, store)
                 .await?
@@ -383,7 +391,7 @@ impl Hkey {
         hash: &Hash,
         key: &Hash,
         store: S,
-    ) -> TResult<SerializedDataChunk, E>
+    ) -> TResult<OwnedDataChunk, E>
     where
         C: DataChunk + Send,
         E: From<DataChunkError> + PromiseRejection + Send,
@@ -574,7 +582,7 @@ impl Hkey {
                     None
                 } else {
                     store
-                        .put(&ps_base64::decode(base64.as_bytes()))?
+                        .put(&decode_base64(base64.as_bytes())?)?
                         .shrink_into(store)?
                         .some()
                 }
@@ -617,7 +625,7 @@ impl Hkey {
                     None
                 } else {
                     store
-                        .put(Bytes::from_owner(ps_base64::decode(base64.as_bytes())))
+                        .put(decode_base64(base64.as_bytes())?.into())
                         .await?
                         .shrink_into_async(store)
                         .await?
@@ -700,25 +708,40 @@ impl Hkey {
     }
 }
 
+/// Decodes base64url `input` into a freshly allocated [`Buffer`].
+pub(crate) fn decode_base64(input: &[u8]) -> Result<Buffer> {
+    let mut buffer = Buffer::alloc_uninit(ps_base64::decoded_len(input.len()))?;
+
+    let decoded_bytes = ps_base64::decode_into(input, &mut buffer);
+
+    buffer.truncate(decoded_bytes);
+
+    Ok(buffer)
+}
+
 impl From<&Hkey> for String {
     fn from(value: &Hkey) -> Self {
-        match value {
-            Hkey::Empty => Self::new(),
-            Hkey::Raw(raw) => ps_base64::encode(raw),
-            Hkey::Base64(base64) => base64.to_string(),
-            Hkey::Direct(hash) => hash.to_string(),
-            Hkey::Encrypted(hash, key) => format!("E{hash}{key}"),
-            Hkey::ListRef(hash, key) => format!("L{hash}{key}"),
-            Hkey::List(list) => Hkey::format_list(list),
-            Hkey::LongHkey(lhkey) => format!("{lhkey}"),
-            Hkey::LongHkeyExpanded(lhkey) => format!("{lhkey}"),
-        }
+        value.to_string()
     }
 }
 
 impl std::fmt::Display for Hkey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&String::from(self))
+        match self {
+            Self::Empty => Ok(()),
+            Self::Raw(raw) => ps_base64::encode_into(raw, f),
+            Self::Base64(base64) => f.write_str(base64),
+            Self::Direct(hash) => write!(f, "{}", hash.display_base64()),
+            Self::Encrypted(hash, key) => {
+                write!(f, "E{}{}", hash.display_base64(), key.display_base64())
+            }
+            Self::ListRef(hash, key) => {
+                write!(f, "L{}{}", hash.display_base64(), key.display_base64())
+            }
+            Self::List(list) => Self::fmt_list(list, f),
+            Self::LongHkey(lhkey) => write!(f, "{lhkey}"),
+            Self::LongHkeyExpanded(lhkey) => write!(f, "{lhkey}"),
+        }
     }
 }
 
