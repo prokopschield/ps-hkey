@@ -612,24 +612,20 @@ impl Hkey {
                 if raw.len() <= MAX_SIZE_RAW {
                     None
                 } else {
-                    store
-                        .put(Bytes::from_owner(raw.clone()))
-                        .await?
-                        .shrink_into_async(store)
-                        .await?
-                        .some()
+                    let stored = store.put(Bytes::from_owner(raw.clone())).await?;
+
+                    // Boxed to break the cycle in the recursive future type.
+                    Box::pin(stored.shrink_into_async(store)).await?.some()
                 }
             }
             Self::Base64(base64) => {
                 if base64.len() <= MAX_SIZE_BASE64 {
                     None
                 } else {
-                    store
-                        .put(decode_base64(base64.as_bytes())?.into())
-                        .await?
-                        .shrink_into_async(store)
-                        .await?
-                        .some()
+                    let stored = store.put(decode_base64(base64.as_bytes())?.into()).await?;
+
+                    // Boxed to break the cycle in the recursive future type.
+                    Box::pin(stored.shrink_into_async(store)).await?.some()
                 }
             }
             Self::List(list) => {
