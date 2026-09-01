@@ -595,7 +595,7 @@ impl Hkey {
                     Err(err) => Err(err)?,
                 }
             }
-            Self::LongHkeyExpanded(lhkey) => Self::LongHkey(lhkey.store(store)?).some(),
+            Self::LongHkeyExpanded(lhkey) => lhkey.store(store)?.some(),
             _ => None,
         }
         .ok()

@@ -11,6 +11,6 @@ impl LongHkeyExpanded {
         E: From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E>,
     {
-        Ok(self.store_async(store).await?.into())
+        self.store_async(store).await
     }
 }

@@ -111,7 +111,7 @@ impl LongHkeyExpanded {
                     range.start + begin..range.start + end,
                 )?;
 
-                let hkey = Hkey::LongHkey(segment.store(store)?);
+                let hkey = segment.store(store)?;
 
                 Ok::<_, E>((begin..end, hkey))
             })

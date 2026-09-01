@@ -1,19 +1,17 @@
 use ps_datachunk::DataChunk;
-use ps_util::ToResult;
 
 use crate::{Hkey, HkeyError, LongHkey, LongHkeyExpanded, Store};
 
 impl LongHkeyExpanded {
-    pub fn store<'a, C, E, S>(&self, store: &S) -> Result<LongHkey, E>
+    pub fn store<'a, C, E, S>(&self, store: &S) -> Result<Hkey, E>
     where
         C: DataChunk,
         E: From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         match store.put(self.to_string().as_bytes())? {
-            Hkey::Encrypted(hash, key) => LongHkey::from_hash_and_key(hash, key),
+            Hkey::Encrypted(hash, key) => Ok(LongHkey::from_hash_and_key(hash, key).into()),
             _ => Err(HkeyError::Storage)?,
         }
-        .ok()
     }
 }

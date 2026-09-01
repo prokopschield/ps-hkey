@@ -10,7 +10,7 @@ impl LongHkeyExpanded {
         E: From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
-        Ok(self.store(store)?.into())
+        self.store(store)
     }
 }
 
