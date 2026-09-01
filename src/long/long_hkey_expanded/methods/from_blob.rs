@@ -62,3 +62,32 @@ impl LongHkeyExpanded {
         Ok(lhkey)
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use crate::long::long_hkey_expanded::constants::LHKEY_LEVEL_MAX_LENGTH;
+    use crate::{InMemoryStore, Store};
+
+    /// A blob longer than one level whose length is 1 to 21 bytes past a
+    /// multiple of [`LHKEY_LEVEL_MAX_LENGTH`] gets a trailing sub-node whose
+    /// manifest is at most 40 bytes, which `put` inlines as [`Hkey::Raw`];
+    /// storing such a blob used to fail with [`HkeyError::Storage`].
+    #[test]
+    fn stores_blobs_with_tiny_trailing_segments() {
+        let store = InMemoryStore::default();
+
+        for size in [
+            LHKEY_LEVEL_MAX_LENGTH + 1,
+            LHKEY_LEVEL_MAX_LENGTH + 21,
+            2 * LHKEY_LEVEL_MAX_LENGTH + 5,
+        ] {
+            let data = vec![129u8; size];
+
+            let hkey = store.put(&data).expect("Failed to store blob");
+            let resolved = hkey.resolve(&store).expect("Failed to resolve blob");
+
+            assert_eq!(&resolved[..], &data[..]);
+        }
+    }
+}
