@@ -3,7 +3,7 @@ use ps_datachunk::DataChunk;
 use crate::{long::LongHkeyExpanded, Hkey, HkeyError, Store};
 
 impl LongHkeyExpanded {
-    /// transforms this [`LongHkey`] into a [`Hkey::ListRef`]
+    /// Stores this [`LongHkeyExpanded`] and returns the resulting [`Hkey::LongHkey`].
     pub fn shrink<'a, C, E, S>(&self, store: &S) -> Result<Hkey, E>
     where
         C: DataChunk,
