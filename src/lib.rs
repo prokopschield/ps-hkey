@@ -642,12 +642,7 @@ impl Hkey {
                     Err(err) => Err(err)?,
                 }
             }
-            Self::LongHkeyExpanded(lhkey) => {
-                match store.put(Bytes::from_owner(lhkey.to_string())).await? {
-                    Self::Encrypted(hash, key) => Self::ListRef(hash, key).some(),
-                    _ => Err(HkeyError::Storage)?,
-                }
-            }
+            Self::LongHkeyExpanded(lhkey) => lhkey.store_async(store).await?.some(),
             _ => None,
         }
         .ok()
