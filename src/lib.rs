@@ -54,7 +54,7 @@ pub enum Hkey {
     Raw(ArrayVec<u8, BUF_SIZE_RAW>),
     /// The data contained in this variant can be decoded via [`ps_base64::decode()`]
     Base64(ArrayString<BUF_SIZE_BASE64>),
-    /// The data shall be read directly from the [`DataStore`]
+    /// The data shall be read directly from the [`Store`]
     Direct(Hash),
     /// **`HashKey`**: The data shall be read via `.0` and decrypted via `.1`
     Encrypted(Hash, Hash),
