@@ -563,10 +563,10 @@ impl Hkey {
         }
     }
 
-    pub fn shrink_or_not<'a, C, E, S>(&self, store: &S) -> TResult<Option<Self>, E>
+    pub fn shrink_or_not<'a, C, E, S>(&self, store: &'a S) -> TResult<Option<Self>, E>
     where
         C: DataChunk,
-        E: From<HkeyError> + Send,
+        E: From<DataChunkError> + From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         match self {
@@ -604,7 +604,7 @@ impl Hkey {
     pub async fn shrink_or_not_async<C, E, S>(&self, store: S) -> TResult<Option<Self>, E>
     where
         C: DataChunk + Send,
-        E: From<HkeyError> + PromiseRejection,
+        E: From<DataChunkError> + From<HkeyError> + PromiseRejection,
         S: AsyncStore<Chunk = C, Error = E>,
     {
         match self {
@@ -648,10 +648,10 @@ impl Hkey {
         .ok()
     }
 
-    pub fn shrink_into<'a, C, E, S>(self, store: &S) -> TResult<Self, E>
+    pub fn shrink_into<'a, C, E, S>(self, store: &'a S) -> TResult<Self, E>
     where
         C: DataChunk,
-        E: From<HkeyError> + Send,
+        E: From<DataChunkError> + From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         (self.shrink_or_not(store)?).map_or_else(|| Ok(self), Ok)
@@ -660,16 +660,16 @@ impl Hkey {
     pub async fn shrink_into_async<C, E, S>(self, store: S) -> TResult<Self, E>
     where
         C: DataChunk + Send,
-        E: From<HkeyError> + PromiseRejection + Send,
+        E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E>,
     {
         (self.shrink_or_not_async(store).await?).map_or_else(|| Ok(self), Ok)
     }
 
-    pub fn shrink<'a, C, E, S>(&self, store: &S) -> TResult<Self, E>
+    pub fn shrink<'a, C, E, S>(&self, store: &'a S) -> TResult<Self, E>
     where
         C: DataChunk,
-        E: From<HkeyError> + Send,
+        E: From<DataChunkError> + From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         (self.shrink_or_not(store)?).map_or_else(|| Ok(self.clone()), Ok)
@@ -678,16 +678,16 @@ impl Hkey {
     pub async fn shrink_async<C, E, S>(&self, store: S) -> TResult<Self, E>
     where
         C: DataChunk + Send,
-        E: From<HkeyError> + PromiseRejection + Send,
+        E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E>,
     {
         (self.shrink_or_not_async(store).await?).map_or_else(|| Ok(self.clone()), Ok)
     }
 
-    pub fn shrink_to_string<'a, C, E, S>(&self, store: &S) -> TResult<String, E>
+    pub fn shrink_to_string<'a, C, E, S>(&self, store: &'a S) -> TResult<String, E>
     where
         C: DataChunk,
-        E: From<HkeyError> + Send,
+        E: From<DataChunkError> + From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         self.shrink(store)?.to_string().ok()
@@ -696,7 +696,7 @@ impl Hkey {
     pub async fn shrink_to_string_async<C, E, S>(&self, store: S) -> TResult<String, E>
     where
         C: DataChunk + Send,
-        E: From<HkeyError> + PromiseRejection + Send,
+        E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E>,
     {
         self.shrink_async(store).await?.to_string().ok()

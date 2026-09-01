@@ -1,13 +1,15 @@
-use ps_datachunk::DataChunk;
+use ps_datachunk::{DataChunk, DataChunkError};
 
 use crate::{long::LongHkeyExpanded, Hkey, HkeyError, Store};
 
 impl LongHkeyExpanded {
     /// Stores this [`LongHkeyExpanded`] and returns the resulting [`Hkey::LongHkey`].
-    pub fn shrink<'a, C, E, S>(&self, store: &S) -> Result<Hkey, E>
+    ///
+    /// Content that fits inline is returned as [`Hkey::Raw`] instead.
+    pub fn shrink<'a, C, E, S>(&self, store: &'a S) -> Result<Hkey, E>
     where
         C: DataChunk,
-        E: From<HkeyError> + Send,
+        E: From<DataChunkError> + From<HkeyError> + Send,
         S: Store<Chunk<'a> = C, Error = E> + Sync + 'a,
     {
         self.store(store)
@@ -19,8 +21,43 @@ mod tests {
     use crate::{
         long::LongHkeyExpanded,
         store::in_memory::{InMemoryStore, InMemoryStoreError},
-        Store,
+        Hkey, Store,
     };
+
+    /// A node whose content fits inline shrinks to [`Hkey::Raw`]; no [`LongHkey`] referencing it
+    /// is ever constructed.
+    ///
+    /// [`LongHkey`]: crate::LongHkey
+    #[test]
+    fn empty_node_shrinks_to_raw() -> Result<(), InMemoryStoreError> {
+        let store = InMemoryStore::default();
+
+        let hkey = LongHkeyExpanded::default().shrink(&store)?;
+
+        assert!(
+            matches!(&hkey, Hkey::Raw(raw) if raw.is_empty()),
+            "Expected Hkey::Raw of no bytes, got {hkey:?}"
+        );
+
+        Ok(())
+    }
+
+    /// Small content written through `update` shrinks to [`Hkey::Raw`] carrying that content.
+    #[test]
+    fn small_node_shrinks_to_raw() -> Result<(), InMemoryStoreError> {
+        let store = InMemoryStore::default();
+
+        let lhkey = LongHkeyExpanded::default().update(&store, &[18u8; 10], 0..10)?;
+
+        let hkey = lhkey.shrink(&store)?;
+
+        assert!(
+            matches!(&hkey, Hkey::Raw(raw) if raw[..] == [18u8; 10]),
+            "Expected Hkey::Raw of the written bytes, got {hkey:?}"
+        );
+
+        Ok(())
+    }
 
     #[test]
     fn valid() -> Result<(), InMemoryStoreError> {

@@ -1,6 +1,6 @@
 use std::{future::Future, pin::Pin, sync::Arc};
 
-use ps_datachunk::{Bytes, DataChunk};
+use ps_datachunk::{Bytes, DataChunk, DataChunkError};
 use ps_promise::PromiseRejection;
 
 use crate::{
@@ -21,7 +21,7 @@ impl LongHkeyExpanded {
     ) -> Pin<Box<dyn Future<Output = Result<Self, E>> + Send + 'a>>
     where
         C: DataChunk + Send,
-        E: From<HkeyError> + PromiseRejection + Send,
+        E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E>,
     {
         Box::pin(async move { Self::from_blob_async(store, data).await })
@@ -30,7 +30,7 @@ impl LongHkeyExpanded {
     pub async fn from_blob_async<C, E, S>(store: S, data: &[u8]) -> Result<Self, E>
     where
         C: DataChunk + Send,
-        E: From<HkeyError> + PromiseRejection + Send,
+        E: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send,
         S: AsyncStore<Chunk = C, Error = E>,
     {
         let depth = calculate_depth(0, data.len());
