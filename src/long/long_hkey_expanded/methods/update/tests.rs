@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::long::long_hkey_expanded::constants::LHKEY_LEVEL_MAX_LENGTH;
-use crate::{InMemoryStore, InMemoryStoreError};
+use crate::{InMemoryAsyncStore, InMemoryStore, InMemoryStoreError};
 
 #[allow(clippy::cast_possible_truncation)]
 fn sequential_bytes(len: usize) -> Vec<u8> {
@@ -166,6 +166,58 @@ fn update_sparse_write_past_the_end_at_depth_one_is_accepted() {
 
     assert_eq!(updated.size(), 200_010, "Reported size");
     assert_eq!(&resolved[..], &[0xAA; 10], "Written bytes");
+}
+
+/// Asynchronous twin of [`update_sparse_write_past_the_end_at_depth_one_is_accepted`].
+#[test]
+fn update_async_sparse_write_past_the_end_at_depth_one_is_accepted() {
+    let store = InMemoryAsyncStore::default();
+
+    let updated = futures::executor::block_on(LongHkeyExpanded::default().update_async(
+        store.clone(),
+        &[0xAA; 10],
+        200_000..200_010,
+    ))
+    .expect("Failed to update");
+
+    let resolved =
+        futures::executor::block_on(updated.resolve_slice_async(store, 200_000..200_010))
+            .expect("Failed to resolve");
+
+    assert_eq!(updated.size(), 200_010, "Reported size");
+    assert_eq!(&resolved[..], &[0xAA; 10], "Written bytes");
+}
+
+/// `update_async` and `update` converge on the same node, and therefore the same content
+/// address, for the same writes; the patch crosses a depth-1 segment boundary.
+#[test]
+fn update_async_matches_sync_at_depth_one() {
+    let store = InMemoryStore::default();
+    let async_store = InMemoryAsyncStore::default();
+
+    let original = sequential_bytes(70_000);
+    let patch = [0xCC; 100];
+
+    let sync_node = LongHkeyExpanded::default()
+        .update(&store, &original, 0..original.len())
+        .expect("Failed to update");
+    let async_node = futures::executor::block_on(LongHkeyExpanded::default().update_async(
+        async_store.clone(),
+        &original,
+        0..original.len(),
+    ))
+    .expect("Failed to update asynchronously");
+
+    assert_eq!(async_node, sync_node, "Node equality after the first write");
+
+    let sync_patched = sync_node
+        .update(&store, &patch, 65_500..65_600)
+        .expect("Failed to patch");
+    let async_patched =
+        futures::executor::block_on(async_node.update_async(async_store, &patch, 65_500..65_600))
+            .expect("Failed to patch asynchronously");
+
+    assert_eq!(async_patched, sync_patched, "Node equality after the patch");
 }
 
 /// Empty data clamps a non-empty range to an empty one, reaching the same early return as
