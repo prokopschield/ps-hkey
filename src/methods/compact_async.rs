@@ -5,6 +5,7 @@ use crate::{decode_base64, methods::compact::compact_dhash, AsyncStore, Hkey};
 impl Hkey {
     pub async fn compact_async<S: AsyncStore>(&self, store: S) -> Result<Bytes, S::Error> {
         match self.shrink_async(store.clone()).await? {
+            Self::Empty => Ok(Bytes::new()),
             Self::Raw(value) => Ok(Bytes::copy_from_slice(&value)),
             Self::Base64(value) => Ok(decode_base64(value.as_bytes())?.into()),
             Self::Direct(hash) => Ok(Bytes::copy_from_slice(hash.compact())),
@@ -45,5 +46,15 @@ mod tests {
         let shrunk = block_on(hkey.shrink_async(store)).expect("Failed to shrink Hkey");
 
         assert_eq!(restored, shrunk);
+    }
+
+    #[test]
+    fn test_empty_variant_compacts_to_empty_buffer() {
+        let store = InMemoryAsyncStore::default();
+
+        let compact =
+            block_on(Hkey::Empty.compact_async(store)).expect("Failed to compact Hkey::Empty");
+
+        assert!(compact.is_empty());
     }
 }

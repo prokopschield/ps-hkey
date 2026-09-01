@@ -6,6 +6,7 @@ use crate::{decode_base64, Hkey, Store};
 impl Hkey {
     pub fn compact<S: Store>(&self, store: &S) -> Result<Bytes, S::Error> {
         match self.shrink(store)? {
+            Self::Empty => Ok(Bytes::new()),
             Self::Raw(value) => Ok(Bytes::copy_from_slice(&value)),
             Self::Base64(value) => Ok(decode_base64(value.as_bytes())?.into()),
             Self::Direct(hash) => Ok(Bytes::copy_from_slice(hash.compact())),
@@ -167,6 +168,17 @@ mod tests {
         let restored = Hkey::from_compact(&compact).expect("Failed to restore Hkey");
 
         assert_eq!(hkey.to_string(), restored.to_string());
+    }
+
+    #[test]
+    fn test_empty_variant_compacts_to_empty_buffer() {
+        let store = InMemoryStore::default();
+
+        let compact = Hkey::Empty
+            .compact(&store)
+            .expect("Failed to compact Hkey::Empty");
+
+        assert!(compact.is_empty());
     }
 
     #[test]
