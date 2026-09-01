@@ -149,6 +149,25 @@ fn update_empty_range_at_depth_one_is_accepted() {
         .expect("An empty range should be accepted");
 }
 
+/// A sparse write far past the end at depth >= 1 covers the untouched segments with empty
+/// nodes. Their content fits inline, so `store` must yield `Hkey::Raw` parts for them instead
+/// of failing to construct a `LongHkey`.
+#[test]
+fn update_sparse_write_past_the_end_at_depth_one_is_accepted() {
+    let store = InMemoryStore::default();
+
+    let updated = LongHkeyExpanded::default()
+        .update(&store, &[0xAA; 10], 200_000..200_010)
+        .expect("Failed to update");
+
+    let resolved = updated
+        .resolve_slice(&store, 200_000..200_010)
+        .expect("Failed to resolve");
+
+    assert_eq!(updated.size(), 200_010, "Reported size");
+    assert_eq!(&resolved[..], &[0xAA; 10], "Written bytes");
+}
+
 /// Empty data clamps a non-empty range to an empty one, reaching the same early return as
 /// [`update_empty_range_at_depth_one_is_accepted`] without an empty range in the signature.
 #[test]

@@ -171,13 +171,14 @@ impl LongHkeyExpanded {
 
                 let offset_start = start.max(range.start);
                 let offset_end = end.min(range.end);
-                let offset_range = offset_start..offset_end;
+                // The segment is a local node; translate the write range into its coordinates.
+                let segment_local_range = offset_start.sub(start)..offset_end.sub(start);
                 let data_slice_start = offset_start.sub(range.start);
                 let data_slice_end = offset_end.sub(range.start);
                 let data_slice_range = data_slice_start..data_slice_end;
                 let data_slice = &data[data_slice_range];
 
-                let segment = segment.update(store, data_slice, offset_range)?;
+                let segment = segment.update(store, data_slice, segment_local_range)?;
 
                 Ok((start..end, transformer(&segment)?))
             })
