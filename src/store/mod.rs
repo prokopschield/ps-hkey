@@ -60,3 +60,41 @@ where
         }
     }
 }
+
+#[allow(clippy::expect_used)]
+#[cfg(test)]
+mod tests {
+    use ps_cypher::encrypt;
+
+    use crate::{store::in_memory::InMemoryStore, Hkey, Store};
+
+    use super::*;
+
+    /// Fills a buffer with xorshift output, which zstd cannot compress.
+    fn incompressible(len: usize) -> Vec<u8> {
+        let mut state = 0x9E37_79B9_7F4A_7C15_u64;
+
+        (0..len)
+            .map(|_| {
+                state ^= state << 13;
+                state ^= state >> 7;
+                state ^= state << 17;
+
+                state.to_le_bytes()[0]
+            })
+            .collect()
+    }
+
+    #[test]
+    fn largest_encrypted_chunk_fits_direct_path() {
+        let store = InMemoryStore::default();
+        let encrypted =
+            encrypt(&incompressible(MAX_DECRYPTED_SIZE)).expect("encryption should succeed");
+
+        assert!(encrypted.len() <= MAX_ENCRYPTED_SIZE, "{}", encrypted.len());
+
+        let hkey = store.put(&encrypted).expect("put should succeed");
+
+        assert_eq!(hkey, Hkey::Direct(encrypted.hash));
+    }
+}
