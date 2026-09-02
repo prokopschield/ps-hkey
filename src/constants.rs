@@ -23,5 +23,6 @@ pub const MAX_DECRYPTED_SIZE: usize = 4096;
 /// - ChaCha20-Poly1305 appends a 16-byte tag, giving 4190;
 /// - long ECC with 12 parity bytes stores 207 new bytes per segment after
 ///   the first 231, so 4190 bytes need 21 segments at 24 parity bytes each,
-///   plus a 32-byte header, giving 4726.
-pub const MAX_ENCRYPTED_SIZE: usize = 4726;
+///   plus a 32-byte header, giving 4726;
+/// - ps-cypher appends a 4-byte tag, giving 4730.
+pub const MAX_ENCRYPTED_SIZE: usize = 4730;

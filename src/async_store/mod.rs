@@ -1,7 +1,7 @@
 pub mod in_memory;
 pub mod mixed;
 
-use ps_cypher::validate_ecc;
+use ps_cypher::{validate, Validity};
 use ps_datachunk::{Bytes, DataChunk, DataChunkError, OwnedDataChunk};
 use ps_hash::Hash;
 use ps_promise::{Promise, PromiseRejection};
@@ -42,7 +42,7 @@ where
         let this = self.clone();
 
         Promise::lazy(async move {
-            if data.len() <= MAX_ENCRYPTED_SIZE && validate_ecc(&data) {
+            if data.len() <= MAX_ENCRYPTED_SIZE && Validity::Pristine == validate(&data) {
                 let chunk = OwnedDataChunk::from_bytes(data)?;
                 let hash = chunk.hash();
 

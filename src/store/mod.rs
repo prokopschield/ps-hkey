@@ -1,7 +1,7 @@
 pub mod combined;
 pub mod in_memory;
 
-use ps_cypher::validate_ecc;
+use ps_cypher::{validate, Validity};
 use ps_datachunk::{BorrowedDataChunk, DataChunk, DataChunkError};
 use ps_hash::Hash;
 
@@ -40,7 +40,7 @@ where
                 .map_err(Into::into);
         }
 
-        if data.len() <= MAX_ENCRYPTED_SIZE && validate_ecc(data) {
+        if data.len() <= MAX_ENCRYPTED_SIZE && Validity::Pristine == validate(data) {
             let chunk = BorrowedDataChunk::from_data(data)?;
             let hash = chunk.hash();
 
@@ -83,6 +83,27 @@ mod tests {
                 state.to_le_bytes()[0]
             })
             .collect()
+    }
+
+    #[test]
+    fn put_stores_encrypted_chunk_directly() {
+        let store = InMemoryStore::default();
+        let encrypted = encrypt(&incompressible(1024)).expect("encryption should succeed");
+
+        let hkey = store.put(&encrypted).expect("put should succeed");
+
+        assert_eq!(hkey, Hkey::Direct(encrypted.hash));
+        assert!(store.get(&encrypted.hash).is_ok());
+    }
+
+    #[test]
+    fn put_encrypts_foreign_codeword() {
+        let store = InMemoryStore::default();
+        let codeword = ps_ecc::encode(&incompressible(1024), 12).expect("encoding should succeed");
+
+        let hkey = store.put(&codeword).expect("put should succeed");
+
+        assert!(matches!(hkey, Hkey::Encrypted(..)), "got {hkey:?}");
     }
 
     #[test]

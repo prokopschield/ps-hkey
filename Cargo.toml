@@ -11,13 +11,16 @@ futures = "0.3.34"
 parking_lot = "0.12.5"
 ps-base64 = "0.1.0-8"
 ps-buffer = { version = "0.1.0-23", features = ["bytes"] }
-ps-cypher = "0.1.0-29"
-ps-datachunk = "0.1.0-37"
+ps-cypher = "0.1.0-30"
+ps-datachunk = "0.1.0-38"
 ps-hash = "0.1.0-27"
 ps-promise = "0.1.0-17"
 ps-util = "0.1.0-9"
 rayon = "1.12.0"
 thiserror = "2.0.20"
+
+[dev-dependencies]
+ps-ecc = "0.1.0-9"
 
 [profile.dev]
 opt-level = 3
