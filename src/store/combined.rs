@@ -9,7 +9,7 @@ pub trait DynStore: Send + Sync {
     type Error: From<DataChunkError> + From<HkeyError> + Send + 'static;
 
     fn get(&self, hash: &Hash) -> Result<OwnedDataChunk, Self::Error>;
-    fn put_encrypted(&self, chunk: BorrowedDataChunk<'_>) -> Result<(), Self::Error>;
+    fn put_verbatim(&self, chunk: BorrowedDataChunk<'_>) -> Result<(), Self::Error>;
 }
 
 impl<T> DynStore for T
@@ -22,8 +22,8 @@ where
         Ok(Store::get(self, hash)?.into_owned())
     }
 
-    fn put_encrypted(&self, chunk: BorrowedDataChunk<'_>) -> Result<(), Self::Error> {
-        Store::put_encrypted(self, chunk)
+    fn put_verbatim(&self, chunk: BorrowedDataChunk<'_>) -> Result<(), Self::Error> {
+        Store::put_verbatim(self, chunk)
     }
 }
 
@@ -111,7 +111,7 @@ impl<E: CombinedStoreError> Store for CombinedStore<E, true> {
         self.get(hash)
     }
 
-    fn put_encrypted<C: DataChunk>(&self, chunk: C) -> Result<(), Self::Error> {
+    fn put_verbatim<C: DataChunk>(&self, chunk: C) -> Result<(), Self::Error> {
         if self.is_empty() {
             return Err(E::no_stores());
         }
@@ -119,7 +119,7 @@ impl<E: CombinedStoreError> Store for CombinedStore<E, true> {
         let mut result = Ok(());
 
         for s in self.iter() {
-            if let Err(err) = s.put_encrypted(chunk.borrow()) {
+            if let Err(err) = s.put_verbatim(chunk.borrow()) {
                 if result.is_ok() {
                     result = Err(err);
                 }
@@ -138,11 +138,11 @@ impl<E: CombinedStoreError> Store for CombinedStore<E, false> {
         self.get(hash)
     }
 
-    fn put_encrypted<C: DataChunk>(&self, chunk: C) -> Result<(), Self::Error> {
+    fn put_verbatim<C: DataChunk>(&self, chunk: C) -> Result<(), Self::Error> {
         let mut last_err = None;
 
         for store in self.iter() {
-            match store.put_encrypted(chunk.borrow()) {
+            match store.put_verbatim(chunk.borrow()) {
                 Ok(()) => return Ok(()),
                 Err(err) => last_err = Some(err),
             }

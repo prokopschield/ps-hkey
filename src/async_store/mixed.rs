@@ -11,7 +11,7 @@ pub trait DynAsyncStore: Send + Sync {
     type Error: From<DataChunkError> + From<HkeyError> + PromiseRejection + Send + 'static;
 
     fn get(&self, hash: Hash) -> Promise<OwnedDataChunk, Self::Error>;
-    fn put_encrypted(&self, chunk: OwnedDataChunk) -> Promise<(), Self::Error>;
+    fn put_verbatim(&self, chunk: OwnedDataChunk) -> Promise<(), Self::Error>;
 }
 
 impl<T> DynAsyncStore for T
@@ -26,8 +26,8 @@ where
         Promise::lazy(async move { Ok(AsyncStore::get(&store, &hash).await?.into_owned()) })
     }
 
-    fn put_encrypted(&self, chunk: OwnedDataChunk) -> Promise<(), Self::Error> {
-        AsyncStore::put_encrypted(self, chunk)
+    fn put_verbatim(&self, chunk: OwnedDataChunk) -> Promise<(), Self::Error> {
+        AsyncStore::put_verbatim(self, chunk)
     }
 }
 
@@ -161,7 +161,7 @@ impl<E: MixedStoreError> Store for MixedStore<E, true> {
         self.get_sync(hash)
     }
 
-    fn put_encrypted<C: DataChunk>(&self, chunk: C) -> Result<(), Self::Error> {
+    fn put_verbatim<C: DataChunk>(&self, chunk: C) -> Result<(), Self::Error> {
         let guard = self.read();
 
         if guard.stores.is_empty() {
@@ -169,7 +169,7 @@ impl<E: MixedStoreError> Store for MixedStore<E, true> {
         }
 
         for s in &guard.stores {
-            s.put_encrypted(chunk.borrow())?;
+            s.put_verbatim(chunk.borrow())?;
         }
 
         drop(guard);
@@ -186,11 +186,11 @@ impl<E: MixedStoreError> Store for MixedStore<E, false> {
         self.get_sync(hash)
     }
 
-    fn put_encrypted<C: DataChunk>(&self, chunk: C) -> Result<(), Self::Error> {
+    fn put_verbatim<C: DataChunk>(&self, chunk: C) -> Result<(), Self::Error> {
         let mut last_err = E::no_stores();
 
         for store in &self.read().stores {
-            match store.put_encrypted(chunk.borrow()) {
+            match store.put_verbatim(chunk.borrow()) {
                 Ok(()) => return Ok(()),
                 Err(err) => last_err = err,
             }
@@ -208,7 +208,7 @@ impl<E: MixedStoreError> AsyncStore for MixedStore<E, true> {
         self.get_async(hash)
     }
 
-    fn put_encrypted<C: DataChunk>(&self, chunk: C) -> Promise<(), Self::Error> {
+    fn put_verbatim<C: DataChunk>(&self, chunk: C) -> Promise<(), Self::Error> {
         let this = self.clone();
         let chunk = chunk.into_owned();
 
@@ -223,7 +223,7 @@ impl<E: MixedStoreError> AsyncStore for MixedStore<E, true> {
         promises.extend(guard.stores.iter().map(|store| {
             let chunk = chunk.clone();
 
-            match store.put_encrypted(chunk.borrow()) {
+            match store.put_verbatim(chunk.borrow()) {
                 Ok(()) => Promise::resolve(()),
                 Err(err) => Promise::reject(err),
             }
@@ -233,7 +233,7 @@ impl<E: MixedStoreError> AsyncStore for MixedStore<E, true> {
             guard
                 .async_stores
                 .iter()
-                .map(|store| store.put_encrypted(chunk.clone())),
+                .map(|store| store.put_verbatim(chunk.clone())),
         );
 
         drop(guard);
@@ -250,7 +250,7 @@ impl<E: MixedStoreError> AsyncStore for MixedStore<E, false> {
         self.get_async(hash)
     }
 
-    fn put_encrypted<C: DataChunk>(&self, chunk: C) -> Promise<(), Self::Error> {
+    fn put_verbatim<C: DataChunk>(&self, chunk: C) -> Promise<(), Self::Error> {
         let this = self.clone();
         let chunk = chunk.into_owned();
 
@@ -263,7 +263,7 @@ impl<E: MixedStoreError> AsyncStore for MixedStore<E, false> {
         let mut last_err = None;
 
         for store in &guard.stores {
-            match store.put_encrypted(chunk.borrow()) {
+            match store.put_verbatim(chunk.borrow()) {
                 Ok(()) => return Promise::resolve(()),
                 Err(err) => last_err = Some(err),
             }
@@ -276,7 +276,7 @@ impl<E: MixedStoreError> AsyncStore for MixedStore<E, false> {
         let promises: Vec<Promise<(), E>> = guard
             .async_stores
             .iter()
-            .map(|store| store.put_encrypted(chunk.clone()))
+            .map(|store| store.put_verbatim(chunk.clone()))
             .collect();
 
         drop(guard);

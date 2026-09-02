@@ -20,7 +20,16 @@ where
 
     fn get(&self, hash: &Hash) -> Promise<Self::Chunk, Self::Error>;
 
-    fn put_encrypted<C: DataChunk>(&self, chunk: C) -> Promise<(), Self::Error>;
+    /// Storage primitive: writes `chunk` under its own hash exactly as given.
+    ///
+    /// Implementors provide this method; callers should not use it. The chunk
+    /// is neither encrypted nor validated, and its hash is trusted to match
+    /// its data. Deciding whether data needs to be stored at all, and in what
+    /// form, is the job of [`put`](Self::put), which is the method callers
+    /// should use: small data is inlined into the returned [`Hkey`], larger
+    /// data is encrypted and stored as one or more chunks, and data that is
+    /// already an encrypted chunk is stored as is.
+    fn put_verbatim<C: DataChunk>(&self, chunk: C) -> Promise<(), Self::Error>;
 
     fn put(&self, data: Bytes) -> Promise<Hkey, Self::Error> {
         if data.len() <= MAX_SIZE_RAW {
@@ -37,7 +46,7 @@ where
                 let chunk = OwnedDataChunk::from_bytes(data)?;
                 let hash = chunk.hash();
 
-                this.put_encrypted(chunk).await?;
+                this.put_verbatim(chunk).await?;
 
                 Ok(Hkey::Direct(hash))
             } else if data.len() <= MAX_DECRYPTED_SIZE {
@@ -45,7 +54,7 @@ where
                 let encrypted = chunk.encrypt()?;
                 let hkey = Hkey::Encrypted(encrypted.hash(), encrypted.key());
 
-                this.put_encrypted(encrypted).await?;
+                this.put_verbatim(encrypted).await?;
 
                 Ok(hkey)
             } else {

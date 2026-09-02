@@ -47,7 +47,7 @@ impl Store for InMemoryStore {
             .ok_or(InMemoryStoreError::NotFound)
     }
 
-    fn put_encrypted<C: DataChunk>(&self, chunk: C) -> Result<(), Self::Error> {
+    fn put_verbatim<C: DataChunk>(&self, chunk: C) -> Result<(), Self::Error> {
         let chunk = chunk.into_owned();
         let hash = *chunk.hash_ref();
 

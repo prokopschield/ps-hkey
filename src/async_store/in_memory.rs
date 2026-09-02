@@ -25,8 +25,8 @@ impl AsyncStore for InMemoryAsyncStore {
         }
     }
 
-    fn put_encrypted<C: DataChunk>(&self, chunk: C) -> Promise<(), Self::Error> {
-        match self.store.put_encrypted(chunk) {
+    fn put_verbatim<C: DataChunk>(&self, chunk: C) -> Promise<(), Self::Error> {
+        match self.store.put_verbatim(chunk) {
             Ok(chunk) => Promise::resolve(chunk),
             Err(err) => Promise::reject(err.into()),
         }
